@@ -354,7 +354,13 @@ function submitOrder(){
   const payload={type:'order',branch:'wondang',gc_use:gu,gc_done:gd,gc_ing:gi,dc:dc,mc:mc,extras:extras,date:dateStr};
 
   // GAS에 전송 (no-cors: 응답 못 읽지만 GAS는 실행됨)
-  fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  // index.html의 fetch 부분 수정 (180번 라인 근처)
+fetch(GAS_URL, {
+  method: 'POST',
+  // mode: 'no-cors'를 제거하거나 'cors'로 변경 (GAS는 리다이렉트 응답을 주므로 'cors'가 더 정확함)
+  headers: { 'Content-Type': 'text/plain' }, // JSON 대신 text/plain으로 보내면 보안 검사를 더 쉽게 통과합니다.
+  body: JSON.stringify(payload)
+})
   .then(()=>{
     showLoading(false);
     const r=calcOrder(gu,gd,gi);
