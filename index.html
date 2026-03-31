@@ -23,14 +23,14 @@
   .tc-order .tc-time{background:#7c3aed}
   .tc-stock .tc-time{background:#059669}
   .top-bar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
-  .back-btn{width:40px;height:40px;border-radius:12px;background:#fff;border:1.5px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:20px;color:#636366}
+  .back-btn{width:40px;height:40px;border-radius:12px;background:#fff;border:1.5px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:20px;color:#636366;cursor:pointer}
   .page-title{font-size:18px;font-weight:700;color:#1c1c1e}
   .page-sub{font-size:13px;color:#8e8e93}
   .date-pill{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;padding:12px 16px;margin-bottom:22px}
   .dp-label{font-size:12px;color:#8e8e93}
   .dp-val{font-size:16px;font-weight:700;color:#1c1c1e}
   .sec-title{font-size:12px;font-weight:700;color:#8e8e93;margin:22px 0 10px;padding-bottom:7px;border-bottom:1.5px solid #e0e0e0}
-  .field-card{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-radius:14px;background:#fff;border:1.5px solid #e0e0e0;margin-bottom:10px}
+  .field-card{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-radius:14px;background:#fff;border:1.5px solid #e0e0e0;margin-bottom:10px;cursor:pointer}
   .fc-label{font-size:16px;font-weight:600;color:#1c1c1e}
   .fc-hint{font-size:12px;color:#8e8e93}
   .fc-right{display:flex;align-items:baseline;gap:5px}
@@ -38,10 +38,11 @@
   .fc-val.empty{color:#c7c7cc}
   .fc-unit{font-size:14px;color:#8e8e93}
   .check-row{display:flex;gap:10px;flex-wrap:wrap}
-  .check-chip{padding:10px 18px;border-radius:20px;font-size:15px;font-weight:600;border:1.5px solid #e0e0e0;background:#fff;color:#636366;transition:all .15s}
+  .check-chip{padding:10px 18px;border-radius:20px;font-size:15px;font-weight:600;border:1.5px solid #e0e0e0;background:#fff;color:#636366;transition:all .15s;cursor:pointer}
   .chip-on-o{background:#ede9fe;border-color:#7c3aed;color:#5b21b6}
   .chip-on-s{background:#d1fae5;border-color:#059669;color:#065f46}
-  .submit-btn{width:100%;padding:18px;border-radius:16px;font-size:17px;font-weight:700;border:none;margin-top:28px;cursor:pointer}
+  .submit-btn{width:100%;padding:18px;border-radius:16px;font-size:17px;font-weight:700;border:none;margin-top:28px;cursor:pointer;transition:opacity .15s}
+  .submit-btn:active{opacity:0.7}
   .sb-o{background:#7c3aed;color:#fff}
   .sb-s{background:#059669;color:#fff}
   .dial-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end;justify-content:center}
@@ -53,19 +54,21 @@
   .d-hint{font-size:18px;color:#c7c7cc}
   .d-unit{font-size:20px;color:#8e8e93}
   .dk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  .dk{height:64px;border-radius:14px;background:#f5f5f7;font-size:24px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .dk{height:64px;border-radius:14px;background:#f5f5f7;font-size:24px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
+  .dk:active{background:#e0e0e0}
   .dk-sp{background:#e8e8ed;font-size:18px}
   .dk-ok{color:#fff;font-size:17px;font-weight:700;grid-column:1/-1;height:58px;border-radius:16px}
   .dk-ok-o{background:#7c3aed}
   .dk-ok-s{background:#059669}
   .done-wrap{padding:48px 0 24px;text-align:center}
   .done-icon{font-size:64px;margin-bottom:18px}
-  .done-title{font-size:22px;font-weight:700}
+  .done-title{font-size:22px;font-weight:700;margin-bottom:10px}
   .msg-preview{text-align:left;background:#f5f5f7;border-radius:14px;padding:16px 18px;margin-top:20px}
   .mp-body{font-size:13px;font-family:monospace;white-space:pre;line-height:1.8}
   .loading-ov{display:none;position:fixed;inset:0;background:rgba(255,255,255,.9);z-index:999;flex-direction:column;align-items:center;justify-content:center}
   .loading-ov.show{display:flex}
   .spinner{width:44px;height:44px;border:4px solid #e0e0e0;border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -127,7 +130,7 @@
     <div class="done-wrap">
       <div class="done-icon">✅</div><div class="done-title" id="done-title">완료</div>
       <div class="msg-preview"><div class="mp-body" id="mp-body"></div></div>
-      <button class="submit-btn" style="background:#e0e0e0;color:#1c1c1e" onclick="goS1()">처음으로</button>
+      <button class="submit-btn" style="background:#e0e0e0;color:#1c1c1e" onclick="goS1()">처음으로 돌아가기</button>
     </div>
   </div>
 </div>
@@ -156,10 +159,29 @@ const fmt=d=>String(d.getFullYear()).slice(2)+'.'+String(d.getMonth()+1).padStar
 document.getElementById('date-o').textContent=fmt(today);
 document.getElementById('date-s').textContent=fmt(today);
 
-function go(t){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('s-'+t).classList.add('active');window.scrollTo(0,0);}
-function goS1(){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('s1').classList.add('active');resetAll();}
-function resetAll(){['o-gu','o-gd','o-gi','o-dc','o-mc','s-gc','s-dc','s-mc'].forEach(id=>{const el=document.getElementById(id);if(el){el.textContent='-';el.classList.add('empty');}});document.querySelectorAll('.check-chip').forEach(c=>c.classList.remove('chip-on-o','chip-on-s'));}
-function toggleChip(el,t){el.classList.toggle(t==='o'?'chip-on-o':'chip-on-s');}
+function go(t){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('s-'+t).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function goS1(){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('s1').classList.add('active');
+  resetAll();
+}
+
+function resetAll(){
+  ['o-gu','o-gd','o-gi','o-dc','o-mc','s-gc','s-dc','s-mc'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.textContent='-';el.classList.add('empty');}
+  });
+  document.querySelectorAll('.check-chip').forEach(c=>c.classList.remove('chip-on-o','chip-on-s'));
+}
+
+function toggleChip(el,t){
+  el.classList.toggle(t==='o'?'chip-on-o':'chip-on-s');
+}
 
 let dTarget=null,dBuf='',dDot=true,dHas=false;
 function openDial(id,lbl,t,dot){
@@ -188,13 +210,34 @@ function renderDisp(){
   const el=document.getElementById('dial-disp');
   el.innerHTML=dHas?`<span class="d-num">${dBuf}</span><span class="d-unit">보</span>`:`<span class="d-hint">숫자 입력</span><span class="d-unit">보</span>`;
 }
-function dkDel(){if(!dHas)return;dBuf=dBuf.slice(0,-1);if(dBuf===''){dHas=false;}renderDisp();}
-function dkOk(){if(dTarget){if(!dHas)dTarget.textContent='-';else{dTarget.textContent=dBuf.replace(/\.$/,'');dTarget.classList.remove('empty');}}document.getElementById('dial-ov').classList.remove('show');}
-function dialClose(e){document.getElementById('dial-ov').classList.remove('show');}
 
-function gv(id){const t=document.getElementById(id).textContent;return t==='-'?0:parseFloat(t);}
+function dkDel(){
+  if(!dHas) return;
+  dBuf=dBuf.slice(0,-1);
+  if(dBuf==='') dHas=false;
+  renderDisp();
+}
 
-// --- 수정된 submitOrder (괄호 및 로직 복구) ---
+function dkOk(){
+  if(dTarget){
+    if(!dHas) dTarget.textContent='-';
+    else {
+      dTarget.textContent=dBuf.replace(/\.$/,'');
+      dTarget.classList.remove('empty');
+    }
+  }
+  document.getElementById('dial-ov').classList.remove('show');
+}
+
+function dialClose(e){
+  document.getElementById('dial-ov').classList.remove('show');
+}
+
+function gv(id){
+  const t=document.getElementById(id).textContent;
+  return t==='-'?0:parseFloat(t);
+}
+
 function submitOrder(){
   const gu=gv('o-gu'),gd=gv('o-gd'),gi=gv('o-gi'),dc=gv('o-dc'),mc=gv('o-mc');
   const ex=Array.from(document.querySelectorAll('#chips-o .chip-on-o')).map(c=>c.textContent);
