@@ -102,7 +102,6 @@
 </head>
 <body>
 
-<!-- S1 선택 -->
 <div class="screen active" id="s1">
   <div class="container">
     <div class="brand">🥩 장수한우곱창</div>
@@ -121,7 +120,6 @@
   </div>
 </div>
 
-<!-- S2 발주 -->
 <div class="screen" id="s-order">
   <div class="container">
     <div class="top-bar">
@@ -160,12 +158,11 @@
       <div class="check-chip" onclick="toggleChip(this,'o')">벌집양</div>
       <div class="check-chip" onclick="toggleChip(this,'o')">천엽</div>
       <div class="check-chip" onclick="toggleChip(this,'o')">간</div>
-    </div>
+      <div class="check-chip" onclick="toggleChip(this,'o')">내장</div> </div>
     <button class="submit-btn sb-o" onclick="submitOrder()">발주 제출하기</button>
   </div>
 </div>
 
-<!-- S3 입고 -->
 <div class="screen" id="s-stock">
   <div class="container">
     <div class="top-bar">
@@ -196,12 +193,11 @@
       <div class="check-chip" onclick="toggleChip(this,'s')">벌집양</div>
       <div class="check-chip" onclick="toggleChip(this,'s')">천엽</div>
       <div class="check-chip" onclick="toggleChip(this,'s')">간</div>
-    </div>
+      <div class="check-chip" onclick="toggleChip(this,'s')">내장</div> </div>
     <button class="submit-btn sb-s" onclick="submitStock()">입고 제출하기</button>
   </div>
 </div>
 
-<!-- S4 완료 -->
 <div class="screen" id="s-done">
   <div class="container">
     <div class="done-wrap">
@@ -217,7 +213,6 @@
   </div>
 </div>
 
-<!-- 다이얼 -->
 <div class="dial-ov" id="dial-ov" onclick="dialClose(event)">
   <div class="dial-sheet" onclick="event.stopPropagation()">
     <div class="dial-lbl" id="dial-lbl"></div>
@@ -236,7 +231,6 @@
   </div>
 </div>
 
-<!-- 로딩 -->
 <div class="loading-ov" id="loading">
   <div class="spinner"></div>
   <div class="loading-text">발주 전송 중...</div>
@@ -353,14 +347,7 @@ function submitOrder(){
 
   const payload={type:'order',branch:'wondang',gc_use:gu,gc_done:gd,gc_ing:gi,dc:dc,mc:mc,extras:extras,date:dateStr};
 
-  // GAS에 전송 (no-cors: 응답 못 읽지만 GAS는 실행됨)
-  // index.html의 fetch 부분 수정 (180번 라인 근처)
-fetch(GAS_URL, {
-  method: 'POST',
-  // mode: 'no-cors'를 제거하거나 'cors'로 변경 (GAS는 리다이렉트 응답을 주므로 'cors'가 더 정확함)
-  headers: { 'Content-Type': 'text/plain' }, // JSON 대신 text/plain으로 보내면 보안 검사를 더 쉽게 통과합니다.
-  body: JSON.stringify(payload)
-})
+  fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
   .then(()=>{
     showLoading(false);
     const r=calcOrder(gu,gd,gi);
