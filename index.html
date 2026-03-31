@@ -66,7 +66,6 @@
   .loading-ov{display:none;position:fixed;inset:0;background:rgba(255,255,255,.9);z-index:999;flex-direction:column;align-items:center;justify-content:center}
   .loading-ov.show{display:flex}
   .spinner{width:44px;height:44px;border:4px solid #e0e0e0;border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -171,11 +170,10 @@ function openDial(id,lbl,t,dot){
   document.getElementById('dial-ov').classList.add('show');
 }
 
-// ── 핵심 수정 부분: '.' 입력 시 '0.' 자동 완성 ─────────────
 function dk(k){
   if(k==='.' && (!dDot || dBuf.includes('.'))) return;
   if(!dHas){
-    if(k==='.') dBuf='0.'; // 처음부터 '.' 누르면 '0.'으로 시작
+    if(k==='.') dBuf='0.';
     else dBuf=k;
     dHas=true;
   } else {
@@ -185,7 +183,6 @@ function dk(k){
   if(dBuf.length>5) return;
   renderDisp();
 }
-// ────────────────────────────────────────────────────────────
 
 function renderDisp(){
   const el=document.getElementById('dial-disp');
@@ -196,26 +193,46 @@ function dkOk(){if(dTarget){if(!dHas)dTarget.textContent='-';else{dTarget.textCo
 function dialClose(e){document.getElementById('dial-ov').classList.remove('show');}
 
 function gv(id){const t=document.getElementById(id).textContent;return t==='-'?0:parseFloat(t);}
+
+// --- 수정된 submitOrder (괄호 및 로직 복구) ---
 function submitOrder(){
   const gu=gv('o-gu'),gd=gv('o-gd'),gi=gv('o-gi'),dc=gv('o-dc'),mc=gv('o-mc');
   const ex=Array.from(document.querySelectorAll('#chips-o .chip-on-o')).map(c=>c.textContent);
   if(gu+gd+gi===0){alert('재고를 입력해주세요.');return;}
   document.getElementById('loading').classList.add('show');
   const payload={type:'order',gc_use:gu,gc_done:gd,gc_ing:gi,dc,mc,extras:ex};
+  
   fetch(GAS_URL, {
-  method: 'POST',
-  mode: 'no-cors', // 구글 서버 특성상 no-cors 유지
-  headers: { 'Content-Type': 'text/plain' }, // 데이터가 더 잘 전달되도록 설정
-  body: JSON.stringify(payload)
-})
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload)
+  }).then(() => {
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('mp-body').textContent=`[발주완료]\n곱창: ${(gu+gd+gi).toFixed(1)}보\n대창: ${dc}보\n막창: ${mc}보\n추가: ${ex.join(',')}\n업체 전송 완료 ✅`;
+    go('done');
+  }).catch(err => {
+    document.getElementById('loading').classList.remove('show');
+    alert('전송 오류: ' + err);
+  });
+}
+
 function submitStock(){
   const gc=gv('s-gc'),dc=gv('s-dc'),mc=gv('s-mc');
   const ex=Array.from(document.querySelectorAll('#chips-s .chip-on-s')).map(c=>c.textContent);
   document.getElementById('loading').classList.add('show');
-  fetch(GAS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({type:'stock',gc,dc,mc,extras:ex})}).then(()=>{
+  fetch(GAS_URL,{
+    method:'POST',
+    mode:'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body:JSON.stringify({type:'stock',gc,dc,mc,extras:ex})
+  }).then(()=>{
     document.getElementById('loading').classList.remove('show');
     document.getElementById('mp-body').textContent=`[입고완료]\n곱창: ${gc}보\n대창: ${dc}보\n막창: ${mc}보\n추가: ${ex.join(',')}\n기록 완료 ✅`;
     go('done');
+  }).catch(err => {
+    document.getElementById('loading').classList.remove('show');
+    alert('전송 오류: ' + err);
   });
 }
 </script>
