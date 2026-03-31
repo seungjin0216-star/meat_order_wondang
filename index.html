@@ -202,12 +202,12 @@ function submitOrder(){
   if(gu+gd+gi===0){alert('재고를 입력해주세요.');return;}
   document.getElementById('loading').classList.add('show');
   const payload={type:'order',gc_use:gu,gc_done:gd,gc_ing:gi,dc,mc,extras:ex};
-  fetch(GAS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)}).then(()=>{
-    document.getElementById('loading').classList.remove('show');
-    document.getElementById('mp-body').textContent=`[발주완료]\n곱창: ${(gu+gd+gi).toFixed(1)}보\n대창: ${dc}보\n막창: ${mc}보\n추가: ${ex.join(',')}\n업체 전송 완료 ✅`;
-    go('done');
-  });
-}
+  fetch(GAS_URL, {
+  method: 'POST',
+  mode: 'no-cors', // 구글 서버 특성상 no-cors 유지
+  headers: { 'Content-Type': 'text/plain' }, // 데이터가 더 잘 전달되도록 설정
+  body: JSON.stringify(payload)
+})
 function submitStock(){
   const gc=gv('s-gc'),dc=gv('s-dc'),mc=gv('s-mc');
   const ex=Array.from(document.querySelectorAll('#chips-s .chip-on-s')).map(c=>c.textContent);
