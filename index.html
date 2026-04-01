@@ -42,7 +42,6 @@
   .chip-on-o{background:#ede9fe;border-color:#7c3aed;color:#5b21b6}
   .chip-on-s{background:#d1fae5;border-color:#059669;color:#065f46}
   .submit-btn{width:100%;padding:18px;border-radius:16px;font-size:17px;font-weight:700;border:none;margin-top:28px;cursor:pointer;transition:opacity .15s}
-  .submit-btn:active{opacity:0.7}
   .sb-o{background:#7c3aed;color:#fff}
   .sb-s{background:#059669;color:#fff}
   .dial-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end;justify-content:center}
@@ -55,7 +54,6 @@
   .d-unit{font-size:20px;color:#8e8e93}
   .dk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   .dk{height:64px;border-radius:14px;background:#f5f5f7;font-size:24px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
-  .dk:active{background:#e0e0e0}
   .dk-sp{background:#e8e8ed;font-size:18px}
   .dk-ok{color:#fff;font-size:17px;font-weight:700;grid-column:1/-1;height:58px;border-radius:16px}
   .dk-ok-o{background:#7c3aed}
@@ -102,9 +100,12 @@
     <div class="sec-title">대창 · 막창</div>
     <div class="field-card" onclick="openDial('o-dc','대창 발주량','o',false)"><div><div class="fc-label">대창</div></div><div class="fc-right"><div class="fc-val empty" id="o-dc">-</div><div class="fc-unit">보</div></div></div>
     <div class="field-card" onclick="openDial('o-mc','막창 발주량','o',false)"><div><div class="fc-label">막창</div></div><div class="fc-right"><div class="fc-val empty" id="o-mc">-</div><div class="fc-unit">보</div></div></div>
-    <div class="sec-title">추가 주문</div>
+    <div class="sec-title">추가 주문 (해당 항목 체크)</div>
     <div class="check-row" id="chips-o">
-      <div class="check-chip" onclick="toggleChip(this,'o')">벌집양</div><div class="check-chip" onclick="toggleChip(this,'o')">천엽</div><div class="check-chip" onclick="toggleChip(this,'o')">간</div><div class="check-chip" onclick="toggleChip(this,'o')">내장</div>
+      <div class="check-chip" onclick="toggleChip(this,'o')">벌집양</div>
+      <div class="check-chip" onclick="toggleChip(this,'o')">천엽</div>
+      <div class="check-chip" onclick="toggleChip(this,'o')">간(한개)</div> <div class="check-chip" onclick="toggleChip(this,'o')">간(반개)</div>
+      <div class="check-chip" onclick="toggleChip(this,'o')">내장</div>
     </div>
     <button class="submit-btn sb-o" onclick="submitOrder()">발주 제출하기</button>
   </div>
@@ -117,9 +118,12 @@
     <div class="field-card stock-card" onclick="openDial('s-gc','곱창 입고량','s',false)"><div><div class="fc-label">곱창</div></div><div class="fc-right"><div class="fc-val empty" id="s-gc">-</div><div class="fc-unit">보</div></div></div>
     <div class="field-card stock-card" onclick="openDial('s-dc','대창 입고량','s',false)"><div><div class="fc-label">대창</div></div><div class="fc-right"><div class="fc-val empty" id="s-dc">-</div><div class="fc-unit">보</div></div></div>
     <div class="field-card stock-card" onclick="openDial('s-mc','막창 입고량','s',false)"><div><div class="fc-label">막창</div></div><div class="fc-right"><div class="fc-val empty" id="s-mc">-</div><div class="fc-unit">보</div></div></div>
-    <div class="sec-title">기타 입고</div>
+    <div class="sec-title">기타 입고 (해당 항목 체크)</div>
     <div class="check-row" id="chips-s">
-      <div class="check-chip" onclick="toggleChip(this,'s')">벌집양</div><div class="check-chip" onclick="toggleChip(this,'s')">천엽</div><div class="check-chip" onclick="toggleChip(this,'s')">간</div><div class="check-chip" onclick="toggleChip(this,'s')">내장</div>
+      <div class="check-chip" onclick="toggleChip(this,'s')">벌집양</div>
+      <div class="check-chip" onclick="toggleChip(this,'s')">천엽</div>
+      <div class="check-chip" onclick="toggleChip(this,'s')">간(한개)</div> <div class="check-chip" onclick="toggleChip(this,'s')">간(반개)</div>
+      <div class="check-chip" onclick="toggleChip(this,'s')">내장</div>
     </div>
     <button class="submit-btn sb-s" onclick="submitStock()">입고 제출하기</button>
   </div>
@@ -152,7 +156,7 @@
 <div class="loading-ov" id="loading"><div class="spinner"></div></div>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx47OdbrHG1JQwEjMQbq2_bZ-RluuMMIwuXCm-ZZ9MrUswkrIISXWer4w2CFw63oHiCHQ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx47OdbrHG1JQwEjMQbq2_bZ-RluuMMIwuXCm-ZZ9MrUswkrIISXWer4w2CFw63oHiCHQ/exec'; 
 const DAYS=['일','월','화','수','목','금','토'];
 const today=new Date();
 const fmt=d=>String(d.getFullYear()).slice(2)+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0')+'('+DAYS[d.getDay()]+')';
