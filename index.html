@@ -1,287 +1,323 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>원당점 발주·입고</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body{width:100%;height:100%;overflow-x:hidden}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f5f5f7;min-height:100vh}
-  .screen{display:none}.screen.active{display:block}
-  .container{width:100%;max-width:500px;margin:0 auto;padding:24px 20px 60px}
-  .brand{font-size:24px;font-weight:700;color:#1c1c1e;margin-bottom:6px}
-  .brand-loc{display:inline-block;background:#ede9fe;color:#5b21b6;font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;margin-bottom:24px}
-  .s1-label{font-size:13px;font-weight:600;color:#8e8e93;letter-spacing:.04em;margin-bottom:12px}
-  .type-card{display:flex;align-items:center;gap:16px;padding:20px 18px;border-radius:16px;border:2px solid #e0e0e0;background:#fff;margin-bottom:12px;cursor:pointer;transition:all .15s}
-  .tc-order{border-color:#7c3aed;background:#faf5ff}
-  .tc-stock{border-color:#059669;background:#f0fdf9}
-  .tc-icon{font-size:34px;flex-shrink:0}
-  .tc-main{font-size:17px;font-weight:700;color:#1c1c1e}
-  .tc-sub{font-size:13px;color:#8e8e93;margin-top:3px}
-  .tc-time{margin-left:auto;font-size:13px;font-weight:700;padding:5px 12px;border-radius:20px;color:#fff}
-  .tc-order .tc-time{background:#7c3aed}
-  .tc-stock .tc-time{background:#059669}
-  .top-bar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
-  .back-btn{width:40px;height:40px;border-radius:12px;background:#fff;border:1.5px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:20px;color:#636366;cursor:pointer}
-  .page-title{font-size:18px;font-weight:700;color:#1c1c1e}
-  .page-sub{font-size:13px;color:#8e8e93}
-  .date-pill{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;padding:12px 16px;margin-bottom:22px}
-  .dp-label{font-size:12px;color:#8e8e93}
-  .dp-val{font-size:16px;font-weight:700;color:#1c1c1e}
-  .sec-title{font-size:12px;font-weight:700;color:#8e8e93;margin:22px 0 10px;padding-bottom:7px;border-bottom:1.5px solid #e0e0e0}
-  .field-card{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-radius:14px;background:#fff;border:1.5px solid #e0e0e0;margin-bottom:10px;cursor:pointer}
-  .fc-label{font-size:16px;font-weight:600;color:#1c1c1e}
-  .fc-hint{font-size:12px;color:#8e8e93}
-  .fc-right{display:flex;align-items:baseline;gap:5px}
-  .fc-val{font-size:28px;font-weight:700;color:#1c1c1e;min-width:52px;text-align:right}
-  .fc-val.empty{color:#c7c7cc}
-  .fc-unit{font-size:14px;color:#8e8e93}
-  .check-row{display:flex;gap:10px;flex-wrap:wrap}
-  .check-chip{padding:10px 18px;border-radius:20px;font-size:15px;font-weight:600;border:1.5px solid #e0e0e0;background:#fff;color:#636366;transition:all .15s;cursor:pointer}
-  .chip-on-o{background:#ede9fe;border-color:#7c3aed;color:#5b21b6}
-  .chip-on-s{background:#d1fae5;border-color:#059669;color:#065f46}
-  .submit-btn{width:100%;padding:18px;border-radius:16px;font-size:17px;font-weight:700;border:none;margin-top:28px;cursor:pointer;transition:opacity .15s}
-  .sb-o{background:#7c3aed;color:#fff}
-  .sb-s{background:#059669;color:#fff}
-  .dial-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end;justify-content:center}
-  .dial-ov.show{display:flex}
-  .dial-sheet{background:#fff;border-radius:24px 24px 0 0;padding:20px 16px 40px;width:100%}
-  .dial-lbl{font-size:13px;color:#8e8e93;margin-bottom:6px}
-  .dial-disp{font-size:52px;font-weight:700;text-align:right;padding:8px 8px 14px;border-bottom:1.5px solid #e0e0e0;margin-bottom:14px;display:flex;align-items:center;justify-content:flex-end;gap:8px}
-  .d-num{color:#1c1c1e}
-  .d-hint{font-size:18px;color:#c7c7cc}
-  .d-unit{font-size:20px;color:#8e8e93}
-  .dk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  .dk{height:64px;border-radius:14px;background:#f5f5f7;font-size:24px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none}
-  .dk-sp{background:#e8e8ed;font-size:18px}
-  .dk-ok{color:#fff;font-size:17px;font-weight:700;grid-column:1/-1;height:58px;border-radius:16px}
-  .dk-ok-o{background:#7c3aed}
-  .dk-ok-s{background:#059669}
-  .done-wrap{padding:48px 0 24px;text-align:center}
-  .done-icon{font-size:64px;margin-bottom:18px}
-  .done-title{font-size:22px;font-weight:700;margin-bottom:10px}
-  .msg-preview{text-align:left;background:#f5f5f7;border-radius:14px;padding:16px 18px;margin-top:20px}
-  .mp-body{font-size:13px;font-family:monospace;white-space:pre;line-height:1.8}
-  .loading-ov{display:none;position:fixed;inset:0;background:rgba(255,255,255,.9);z-index:999;flex-direction:column;align-items:center;justify-content:center}
-  .loading-ov.show{display:flex}
-  .spinner{width:44px;height:44px;border:4px solid #e0e0e0;border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-</style>
-</head>
-<body>
+// ============================================================
+//  장수한우곱창 자동 발주 시스템 — Google Apps Script
+//  파일명: 코드.gs
+// ============================================================
 
-<div class="screen active" id="s1">
-  <div class="container">
-    <div class="brand">🥩 장수한우곱창</div>
-    <div class="brand-loc">🟣 원당 본점</div>
-    <div class="s1-label">입력 유형을 선택하세요</div>
-    <div class="type-card tc-order" onclick="go('order')">
-      <div class="tc-icon">📋</div>
-      <div><div class="tc-main">발주 입력</div><div class="tc-sub">현재 재고 → 자동 발주</div></div>
-      <div class="tc-time">22:00</div>
-    </div>
-    <div class="type-card tc-stock" onclick="go('stock')">
-      <div class="tc-icon">📦</div>
-      <div><div class="tc-main">입고 입력</div><div class="tc-sub">오늘 실제 입고량 입력</div></div>
-      <div class="tc-time">15:00</div>
-    </div>
-  </div>
-</div>
+const CONFIG = {
+  SOLAPI_API_KEY    : 'YOUR_API_KEY',
+  SOLAPI_API_SECRET : 'YOUR_API_SECRET',
+  SENDER_NUMBER     : '01041216995',
+  VENDOR_NUMBER     : '01053226995',
+  OWNER_NUMBER      : '01041216995',
 
-<div class="screen" id="s-order">
-  <div class="container">
-    <div class="top-bar"><div class="back-btn" onclick="goS1()">←</div><div><div class="page-title">📋 발주 입력</div><div class="page-sub">원당 본점</div></div></div>
-    <div class="date-pill"><span class="dp-label">발주일</span><span class="dp-val" id="date-o"></span></div>
-    <div class="sec-title">곱창 재고</div>
-    <div class="field-card" onclick="openDial('o-gu','곱창 · 쓰고 있는 것','o',true)"><div><div class="fc-label">쓰고 있는 것</div></div><div class="fc-right"><div class="fc-val empty" id="o-gu">-</div><div class="fc-unit">보</div></div></div>
-    <div class="field-card" onclick="openDial('o-gd','곱창 · 연육 완료','o',true)"><div><div class="fc-label">연육 완료</div></div><div class="fc-right"><div class="fc-val empty" id="o-gd">-</div><div class="fc-unit">보</div></div></div>
-    <div class="field-card" onclick="openDial('o-gi','곱창 · 연육 중','o',true)"><div><div class="fc-label">연육 중</div></div><div class="fc-right"><div class="fc-val empty" id="o-gi">-</div><div class="fc-unit">보</div></div></div>
-    <div class="sec-title">대창 · 막창</div>
-    <div class="field-card" onclick="openDial('o-dc','대창 발주량','o',false)"><div><div class="fc-label">대창</div></div><div class="fc-right"><div class="fc-val empty" id="o-dc">-</div><div class="fc-unit">보</div></div></div>
-    <div class="field-card" onclick="openDial('o-mc','막창 발주량','o',false)"><div><div class="fc-label">막창</div></div><div class="fc-right"><div class="fc-val empty" id="o-mc">-</div><div class="fc-unit">보</div></div></div>
-    <div class="sec-title">추가 주문 (해당 항목 체크)</div>
-    <div class="check-row" id="chips-o">
-      <div class="check-chip" onclick="toggleChip(this,'o')">벌집양</div>
-      <div class="check-chip" onclick="toggleChip(this,'o')">천엽</div>
-      <div class="check-chip" onclick="toggleChip(this,'o')">간(한개)</div> <div class="check-chip" onclick="toggleChip(this,'o')">간(반개)</div>
-      <div class="check-chip" onclick="toggleChip(this,'o')">내장</div>
-    </div>
-    <button class="submit-btn sb-o" onclick="submitOrder()">발주 제출하기</button>
-  </div>
-</div>
+  WONDANG: {
+    WEEKDAY_TARGET : 8,
+    WEEKEND_TARGET : 13,
+  },
 
-<div class="screen" id="s-stock">
-  <div class="container">
-    <div class="top-bar"><div class="back-btn" onclick="goS1()">←</div><div><div class="page-title">📦 입고 입력</div><div class="page-sub">원당 본점</div></div></div>
-    <div class="date-pill"><span class="dp-label">입고일</span><span class="dp-val" id="date-s"></span></div>
-    <div class="field-card stock-card" onclick="openDial('s-gc','곱창 입고량','s',false)"><div><div class="fc-label">곱창</div></div><div class="fc-right"><div class="fc-val empty" id="s-gc">-</div><div class="fc-unit">보</div></div></div>
-    <div class="field-card stock-card" onclick="openDial('s-dc','대창 입고량','s',false)"><div><div class="fc-label">대창</div></div><div class="fc-right"><div class="fc-val empty" id="s-dc">-</div><div class="fc-unit">보</div></div></div>
-    <div class="field-card stock-card" onclick="openDial('s-mc','막창 입고량','s',false)"><div><div class="fc-label">막창</div></div><div class="fc-right"><div class="fc-val empty" id="s-mc">-</div><div class="fc-unit">보</div></div></div>
-    <div class="sec-title">기타 입고 (해당 항목 체크)</div>
-    <div class="check-row" id="chips-s">
-      <div class="check-chip" onclick="toggleChip(this,'s')">벌집양</div>
-      <div class="check-chip" onclick="toggleChip(this,'s')">천엽</div>
-      <div class="check-chip" onclick="toggleChip(this,'s')">간(한개)</div> <div class="check-chip" onclick="toggleChip(this,'s')">간(반개)</div>
-      <div class="check-chip" onclick="toggleChip(this,'s')">내장</div>
-    </div>
-    <button class="submit-btn sb-s" onclick="submitStock()">입고 제출하기</button>
-  </div>
-</div>
+  // 공공데이터포털 API 키 — 발급 후 입력
+  HOLIDAY_API_KEY : '',
 
-<div class="screen" id="s-done">
-  <div class="container">
-    <div class="done-wrap">
-      <div class="done-icon">✅</div><div class="done-title" id="done-title">완료</div>
-      <div class="msg-preview"><div class="mp-body" id="mp-body"></div></div>
-      <button class="submit-btn" style="background:#e0e0e0;color:#1c1c1e" onclick="goS1()">처음으로 돌아가기</button>
-    </div>
-  </div>
-</div>
+  SHEET_ORDER : '발주기록',
+  SHEET_STOCK : '입고기록',
+};
 
-<div class="dial-ov" id="dial-ov" onclick="dialClose(event)">
-  <div class="dial-sheet" onclick="event.stopPropagation()">
-    <div class="dial-lbl" id="dial-lbl"></div>
-    <div class="dial-disp" id="dial-disp"></div>
-    <div class="dk-grid">
-      <div class="dk" onclick="dk('1')">1</div><div class="dk" onclick="dk('2')">2</div><div class="dk" onclick="dk('3')">3</div>
-      <div class="dk" onclick="dk('4')">4</div><div class="dk" onclick="dk('5')">5</div><div class="dk" onclick="dk('6')">6</div>
-      <div class="dk" onclick="dk('7')">7</div><div class="dk" onclick="dk('8')">8</div><div class="dk" onclick="dk('9')">9</div>
-      <div class="dk dk-sp" id="dk-dot" onclick="dk('.')">·</div><div class="dk" onclick="dk('0')">0</div><div class="dk dk-sp" onclick="dkDel()">⌫</div>
-      <div class="dk dk-ok" id="dk-ok" onclick="dkOk()">확인</div>
-    </div>
-  </div>
-</div>
 
-<div class="loading-ov" id="loading"><div class="spinner"></div></div>
-
-<script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx47OdbrHG1JQwEjMQbq2_bZ-RluuMMIwuXCm-ZZ9MrUswkrIISXWer4w2CFw63oHiCHQ/exec'; 
-const DAYS=['일','월','화','수','목','금','토'];
-const today=new Date();
-const fmt=d=>String(d.getFullYear()).slice(2)+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0')+'('+DAYS[d.getDay()]+')';
-document.getElementById('date-o').textContent=fmt(today);
-document.getElementById('date-s').textContent=fmt(today);
-
-function go(t){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('s-'+t).classList.add('active');
-  window.scrollTo(0,0);
+// ── ① 브라우저 접속 시 HTML 반환 ────────────────────────
+function doGet(e) {
+  return HtmlService
+    .createHtmlOutputFromFile('index')
+    .setTitle('원당점 발주·입고')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function goS1(){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('s1').classList.add('active');
-  resetAll();
-}
-
-function resetAll(){
-  ['o-gu','o-gd','o-gi','o-dc','o-mc','s-gc','s-dc','s-mc'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el){el.textContent='-';el.classList.add('empty');}
-  });
-  document.querySelectorAll('.check-chip').forEach(c=>c.classList.remove('chip-on-o','chip-on-s'));
-}
-
-function toggleChip(el,t){
-  el.classList.toggle(t==='o'?'chip-on-o':'chip-on-s');
-}
-
-let dTarget=null,dBuf='',dDot=true,dHas=false;
-function openDial(id,lbl,t,dot){
-  dTarget=document.getElementById(id);dBuf='';dDot=dot;dHas=false;
-  document.getElementById('dial-lbl').textContent=lbl;
-  document.getElementById('dk-ok').className='dk dk-ok '+(t==='o'?'dk-ok-o':'dk-ok-s');
-  renderDisp();
-  document.getElementById('dial-ov').classList.add('show');
-}
-
-function dk(k){
-  if(k==='.' && (!dDot || dBuf.includes('.'))) return;
-  if(!dHas){
-    if(k==='.') dBuf='0.';
-    else dBuf=k;
-    dHas=true;
-  } else {
-    if(dBuf==='0' && k!=='.') dBuf=k;
-    else dBuf+=k;
+// ── ② POST 수신 ──────────────────────────────────────────
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    if (data.type === 'order') return handleOrder(data);
+    if (data.type === 'stock') return handleStock(data);
+    return jsonResponse({ ok: false, message: '알 수 없는 type' });
+  } catch (err) {
+    Logger.log('doPost 오류: ' + err.message);
+    return jsonResponse({ ok: false, message: err.message });
   }
-  if(dBuf.length>5) return;
-  renderDisp();
 }
 
-function renderDisp(){
-  const el=document.getElementById('dial-disp');
-  el.innerHTML=dHas?`<span class="d-num">${dBuf}</span><span class="d-unit">보</span>`:`<span class="d-hint">숫자 입력</span><span class="d-unit">보</span>`;
+// ── ③ 발주 처리 ──────────────────────────────────────────
+function handleOrder(data) {
+  const gcUse  = parseFloat(data.gc_use)  || 0;
+  const gcDone = parseFloat(data.gc_done) || 0;
+  const gcIng  = parseFloat(data.gc_ing)  || 0;
+  const dc     = parseFloat(data.dc)      || 0;
+  const mc     = parseFloat(data.mc)      || 0;
+  const extras = data.extras || [];
+
+  const now       = new Date();
+  const dateStr   = formatDate(now);
+  const dayOfWeek = now.getDay();
+
+  const currentStock = gcUse + gcDone + gcIng;
+
+  // ── 공휴일 보정 포함 목표재고 계산 ──
+  const target = getTargetWithHoliday(now, dayOfWeek, CONFIG.WONDANG);
+
+  const rawOrder = target - currentStock;
+  const calcOrder = rawOrder <= 0 ? 0 : Math.round(rawOrder);
+  // 최소 2보 주문 (재고가 목표치 이상이어도 무조건 최소 2보)
+  const gcOrder = Math.max(calcOrder, 2);
+
+  logOrderToSheet(dateStr, gcUse, gcDone, gcIng, currentStock, target, gcOrder, dc, mc, extras);
+
+  sendSms(CONFIG.VENDOR_NUMBER, buildVendorMsg(dateStr, gcOrder, dc, mc, extras));
+  sendSms(CONFIG.OWNER_NUMBER,  buildOwnerOrderMsg(dateStr, gcUse, gcDone, gcIng, currentStock, target, gcOrder, dc, mc, extras));
+
+  return jsonResponse({ ok: true, gc_order: gcOrder, target: target });
 }
 
-function dkDel(){
-  if(!dHas) return;
-  dBuf=dBuf.slice(0,-1);
-  if(dBuf==='') dHas=false;
-  renderDisp();
+// ── ④ 입고 처리 ──────────────────────────────────────────
+function handleStock(data) {
+  const gc     = parseInt(data.gc)  || 0;
+  const dc     = parseInt(data.dc)  || 0;
+  const mc     = parseInt(data.mc)  || 0;
+  const extras = data.extras || [];
+
+  const dateStr = formatDate(new Date());
+  logStockToSheet(dateStr, gc, dc, mc, extras);
+  sendSms(CONFIG.OWNER_NUMBER, buildOwnerStockMsg(dateStr, gc, dc, mc, extras));
+
+  return jsonResponse({ ok: true });
 }
 
-function dkOk(){
-  if(dTarget){
-    if(!dHas) dTarget.textContent='-';
-    else {
-      dTarget.textContent=dBuf.replace(/\.$/,'');
-      dTarget.classList.remove('empty');
+
+// ══════════════════════════════════════════════════════════
+//  ⑤ 공휴일 보정 목표재고 계산
+// ══════════════════════════════════════════════════════════
+
+function getTargetWithHoliday(today, dayOfWeek, branchConfig) {
+  // 기본 목표
+  const base = (dayOfWeek === 5 || dayOfWeek === 6)
+    ? branchConfig.WEEKEND_TARGET
+    : branchConfig.WEEKDAY_TARGET;
+
+  // 내일부터 7일 내 공휴일/연휴 여부 체크
+  const hasHoliday = checkUpcomingHoliday(today);
+
+  if (hasHoliday) {
+    Logger.log('공휴일 감지 → 목표재고 +1보 보정');
+    return base + 1;
+  }
+
+  return base;
+}
+
+// 내일~7일 내 공휴일 또는 토/일 연속 여부 확인
+function checkUpcomingHoliday(today) {
+  const year  = today.getFullYear();
+  const month = today.getMonth() + 1;
+
+  // 공공데이터 API 키가 있으면 실제 공휴일 체크
+  if (CONFIG.HOLIDAY_API_KEY) {
+    try {
+      const holidays = getPublicHolidays(year, month);
+      // 다음달도 체크 (월말 기준)
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear  = month === 12 ? year + 1 : year;
+      const holidaysNext = getPublicHolidays(nextYear, nextMonth);
+      const allHolidays  = holidays.concat(holidaysNext);
+
+      // 내일부터 7일 내 공휴일 있는지 확인
+      for (let i = 1; i <= 7; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(today.getDate() + i);
+        const yy = checkDate.getFullYear();
+        const mm = String(checkDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(checkDate.getDate()).padStart(2, '0');
+        const dateKey = `${yy}${mm}${dd}`;
+        if (allHolidays.includes(dateKey)) {
+          Logger.log('공휴일 감지: ' + dateKey);
+          return true;
+        }
+      }
+    } catch (err) {
+      Logger.log('공휴일 API 오류 (토/일 체크로 대체): ' + err.message);
+      return checkWeekendComing(today);
     }
   }
-  document.getElementById('dial-ov').classList.remove('show');
+
+  // API 키 없으면 토/일 연속 체크로 대체
+  return checkWeekendComing(today);
 }
 
-function dialClose(e){
-  document.getElementById('dial-ov').classList.remove('show');
+// API 키 없을 때 — 내일이 금요일이면 주말 연휴 예고로 간주
+function checkWeekendComing(today) {
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const dow = tomorrow.getDay();
+  // 내일이 금(5) 또는 토(6)이면 주말 연휴 예정
+  return (dow === 5 || dow === 6);
 }
 
-function gv(id){
-  const t=document.getElementById(id).textContent;
-  return t==='-'?0:parseFloat(t);
+// 공공데이터포털 공휴일 API 호출
+function getPublicHolidays(year, month) {
+  const url =
+    'https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo' +
+    '?serviceKey=' + encodeURIComponent(CONFIG.HOLIDAY_API_KEY) +
+    '&solYear=' + year +
+    '&solMonth=' + String(month).padStart(2, '0') +
+    '&_type=json' +
+    '&numOfRows=50';
+
+  const res    = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  const json   = JSON.parse(res.getContentText());
+  const items  = json?.response?.body?.items?.item;
+
+  if (!items) return [];
+
+  // item이 배열이 아닐 수도 있음 (1개일 때 객체로 옴)
+  const list = Array.isArray(items) ? items : [items];
+  return list.map(item => String(item.locdate));
 }
 
-function submitOrder(){
-  const gu=gv('o-gu'),gd=gv('o-gd'),gi=gv('o-gi'),dc=gv('o-dc'),mc=gv('o-mc');
-  const ex=Array.from(document.querySelectorAll('#chips-o .chip-on-o')).map(c=>c.textContent);
-  if(gu+gd+gi===0){alert('재고를 입력해주세요.');return;}
-  document.getElementById('loading').classList.add('show');
-  const payload={type:'order',gc_use:gu,gc_done:gd,gc_ing:gi,dc,mc,extras:ex};
-  
-  fetch(GAS_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload)
-  }).then(() => {
-    document.getElementById('loading').classList.remove('show');
-    document.getElementById('mp-body').textContent=`[발주완료]\n곱창: ${(gu+gd+gi).toFixed(1)}보\n대창: ${dc}보\n막창: ${mc}보\n추가: ${ex.join(',')}\n업체 전송 완료 ✅`;
-    go('done');
-  }).catch(err => {
-    document.getElementById('loading').classList.remove('show');
-    alert('전송 오류: ' + err);
+
+// ── ⑥ 알림 트리거 (22시 / 15시) ─────────────────────────
+function sendOrderReminder() {
+  const dateStr   = formatDate(new Date());
+  const webAppUrl = ScriptApp.getService().getUrl();
+  sendSms('원당관리자번호입력', // ← 원당 관리자 번호로 교체
+    `[장수한우곱창]\n📋 발주 입력 시간입니다\n${dateStr}\n──────────────────\n아래 링크에서 재고를 입력해주세요\n${webAppUrl}`
+  );
+}
+
+function sendStockReminder() {
+  const dateStr   = formatDate(new Date());
+  const webAppUrl = ScriptApp.getService().getUrl();
+  sendSms('원당관리자번호입력', // ← 원당 관리자 번호로 교체
+    `[장수한우곱창]\n📦 입고 확인 시간입니다\n${dateStr}\n──────────────────\n아래 링크에서 입고량을 입력해주세요\n${webAppUrl}`
+  );
+}
+
+
+// ── ⑦ 문자 내용 생성 ─────────────────────────────────────
+function buildVendorMsg(dateStr, gcOrder, dc, mc, extras) {
+  let msg = `[장수한우곱창 발주]\n원당점  ·  ${dateStr}\n──────────────────\n`;
+  msg += `곱창  ${pad(gcOrder, 3)} 보\n`;
+  if (dc > 0) msg += `대창  ${pad(dc, 3)} 보\n`;
+  if (mc > 0) msg += `막창  ${pad(mc, 3)} 보\n`;
+  if (extras.length) msg += `추가  ${extras.join(' / ')}\n`;
+  msg += `──────────────────\n내일 납품 부탁드립니다.`;
+  return msg;
+}
+
+function buildOwnerOrderMsg(dateStr, gcUse, gcDone, gcIng, currentStock, target, gcOrder, dc, mc, extras) {
+  const isHolidayBoost = target > CONFIG.WONDANG.WEEKEND_TARGET
+    ? false
+    : (target % 1 === 0 && target !== getBaseTarget(new Date().getDay(), CONFIG.WONDANG));
+
+  let msg = `[발주완료] 원당점\n${dateStr}\n──────────────────\n곱창 재고\n`;
+  msg += `  쓰는것   ${pad(gcUse,                   5)} 보\n`;
+  msg += `  연육완료 ${pad(gcDone,                  5)} 보\n`;
+  msg += `  연육중   ${pad(gcIng,                   5)} 보\n`;
+  msg += `  합계     ${pad(currentStock.toFixed(1), 5)} 보\n`;
+  msg += `  목표     ${pad(target,                  5)} 보`;
+  if (target !== getBaseTarget(new Date().getDay(), CONFIG.WONDANG)) {
+    msg += ` (+1 연휴보정)`;
+  }
+  msg += `\n──────────────────\n`;
+  msg += `곱창 발주  ${pad(gcOrder, 3)} 보\n`;
+  if (dc > 0) msg += `대창 발주  ${pad(dc, 3)} 보\n`;
+  if (mc > 0) msg += `막창 발주  ${pad(mc, 3)} 보\n`;
+  if (extras.length) msg += `추가       ${extras.join(' / ')}\n`;
+  msg += `──────────────────\n업체 문자 발송완료 ✅`;
+  return msg;
+}
+
+function buildOwnerStockMsg(dateStr, gc, dc, mc, extras) {
+  let msg = `[입고확인] 원당점\n${dateStr}\n──────────────────\n`;
+  msg += `곱창  ${pad(gc, 3)} 보\n`;
+  if (dc > 0) msg += `대창  ${pad(dc, 3)} 보\n`;
+  if (mc > 0) msg += `막창  ${pad(mc, 3)} 보\n`;
+  if (extras.length) msg += `기타  ${extras.join(' / ')}\n`;
+  msg += `──────────────────\n입고 확인완료 ✅`;
+  return msg;
+}
+
+
+// ── ⑧ 솔라피 SMS ─────────────────────────────────────────
+function sendSms(to, text) {
+  const date      = new Date().toISOString();
+  const salt      = Utilities.getUuid();
+  const signature = computeHmac(CONFIG.SOLAPI_API_SECRET, date + salt);
+
+  const res = UrlFetchApp.fetch('https://api.solapi.com/messages/v4/send', {
+    method      : 'post',
+    contentType : 'application/json',
+    headers     : {
+      'Authorization': `HMAC-SHA256 apiKey=${CONFIG.SOLAPI_API_KEY}, date=${date}, salt=${salt}, signature=${signature}`
+    },
+    payload     : JSON.stringify({ message: { to, from: CONFIG.SENDER_NUMBER, text } }),
+    muteHttpExceptions: true,
   });
+
+  const result = JSON.parse(res.getContentText());
+  if (result.errorCode) {
+    Logger.log('SMS 오류: ' + JSON.stringify(result));
+  } else {
+    Logger.log('SMS 발송완료 → ' + to);
+  }
 }
 
-function submitStock(){
-  const gc=gv('s-gc'),dc=gv('s-dc'),mc=gv('s-mc');
-  const ex=Array.from(document.querySelectorAll('#chips-s .chip-on-s')).map(c=>c.textContent);
-  document.getElementById('loading').classList.add('show');
-  fetch(GAS_URL,{
-    method:'POST',
-    mode:'no-cors',
-    headers: { 'Content-Type': 'text/plain' },
-    body:JSON.stringify({type:'stock',gc,dc,mc,extras:ex})
-  }).then(()=>{
-    document.getElementById('loading').classList.remove('show');
-    document.getElementById('mp-body').textContent=`[입고완료]\n곱창: ${gc}보\n대창: ${dc}보\n막창: ${mc}보\n추가: ${ex.join(',')}\n기록 완료 ✅`;
-    go('done');
-  }).catch(err => {
-    document.getElementById('loading').classList.remove('show');
-    alert('전송 오류: ' + err);
-  });
+function computeHmac(secret, data) {
+  const hash = Utilities.computeHmacSha256Signature(
+    Utilities.newBlob(data).getBytes(),
+    Utilities.newBlob(secret).getBytes()
+  );
+  return hash.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
 }
-</script>
-</body>
-</html>
+
+
+// ── ⑨ 스프레드시트 기록 ──────────────────────────────────
+function logOrderToSheet(dateStr, gcUse, gcDone, gcIng, total, target, gcOrder, dc, mc, extras) {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEET_ORDER) || ss.insertSheet(CONFIG.SHEET_ORDER);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['날짜','지점','쓰는것','연육완료','연육중','현재고','목표','발주(곱창)','대창','막창','추가주문','연휴보정']);
+  }
+  const baseTarget = getBaseTarget(new Date().getDay(), CONFIG.WONDANG);
+  const isBoost    = target !== baseTarget ? 'O' : '-';
+  sheet.appendRow([dateStr,'원당점',gcUse,gcDone,gcIng,total,target,gcOrder,dc,mc,extras.join(', '),isBoost]);
+}
+
+function logStockToSheet(dateStr, gc, dc, mc, extras) {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEET_STOCK) || ss.insertSheet(CONFIG.SHEET_STOCK);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['날짜','지점','곱창 입고','대창 입고','막창 입고','기타']);
+  }
+  sheet.appendRow([dateStr,'원당점',gc,dc,mc,extras.join(', ')]);
+}
+
+
+// ── ⑩ 유틸 ──────────────────────────────────────────────
+function getBaseTarget(dayOfWeek, cfg) {
+  return (dayOfWeek === 5 || dayOfWeek === 6) ? cfg.WEEKEND_TARGET : cfg.WEEKDAY_TARGET;
+}
+
+function formatDate(d) {
+  const days = ['일','월','화','수','목','금','토'];
+  return String(d.getFullYear()).slice(2) + '.' +
+    String(d.getMonth()+1).padStart(2,'0') + '.' +
+    String(d.getDate()).padStart(2,'0') + '(' + days[d.getDay()] + ')';
+}
+
+function pad(val, len) {
+  let s = String(val);
+  while (s.length < len) s = ' ' + s;
+  return s;
+}
+
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
