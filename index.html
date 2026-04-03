@@ -4,26 +4,33 @@
 // ============================================================
 
 const CONFIG = {
-  SOLAPI_API_KEY    : 'YOUR_API_KEY',
-  SOLAPI_API_SECRET : 'YOUR_API_SECRET',
+  SOLAPI_API_KEY    : 'NCSMFQTOMYW4DOBV',
+  SOLAPI_API_SECRET : 'SMJIRV3CC3AU1WH3B8L0JK8H69SPZDAD',
   SENDER_NUMBER     : '01041216995',
   VENDOR_NUMBER     : '01053226995',
   OWNER_NUMBER      : '01041216995',
 
   WONDANG: {
-    WEEKDAY_TARGET : 8,
-    WEEKEND_TARGET : 13,
+    // 요일별 목표재고 (그라데이션 적용)
+    // 일=0, 월=1, 화=2, 수=3, 목=4, 금=5, 토=6
+    TARGET_BY_DAY : [8, 8, 8, 10, 11, 13, 13],
+    //               일  월  화   수   목  금  토
+    // 수(10): 목/금 수요 미리 대비 시작
+    // 목(11): 금요일 입고분 감안
+    // 금/토(13): 주말 최대치
+
+    MIN_ORDER : 2,   // 최소 발주량
+    MAX_ORDER : 4,   // 최대 발주량
   },
 
-  // 공공데이터포털 API 키 — 발급 후 입력
-  HOLIDAY_API_KEY : '',
+  HOLIDAY_API_KEY : '',  // 공공데이터포털 API 키 (발급 후 입력)
 
   SHEET_ORDER : '발주기록',
   SHEET_STOCK : '입고기록',
 };
 
 
-// ── ① 브라우저 접속 시 HTML 반환 ────────────────────────
+// ── ① HTML 반환 ──────────────────────────────────────────
 function doGet(e) {
   return HtmlService
     .createHtmlOutputFromFile('index')
@@ -59,16 +66,17 @@ function handleOrder(data) {
 
   const currentStock = gcUse + gcDone + gcIng;
 
-  // ── 공휴일 보정 포함 목표재고 계산 ──
-  const target = getTargetWithHoliday(now, dayOfWeek, CONFIG.WONDANG);
+  // 공휴일 보정 포함 목표재고
+  const target = getTargetWithHoliday(now, dayOfWeek);
 
-  const rawOrder = target - currentStock;
+  // 발주량 계산: 최소 2보, 최대 4보
+  const rawOrder  = target - currentStock;
   const calcOrder = rawOrder <= 0 ? 0 : Math.round(rawOrder);
-  // 최소 2보 주문 (재고가 목표치 이상이어도 무조건 최소 2보)
-  const gcOrder = Math.max(calcOrder, 2);
+  const gcOrder   = Math.min(Math.max(calcOrder, CONFIG.WONDANG.MIN_ORDER), CONFIG.WONDANG.MAX_ORDER);
+
+  Logger.log(`발주계산 | 요일:${dayOfWeek} 현재고:${currentStock} 목표:${target} 계산:${calcOrder} 최종:${gcOrder}`);
 
   logOrderToSheet(dateStr, gcUse, gcDone, gcIng, currentStock, target, gcOrder, dc, mc, extras);
-
   sendSms(CONFIG.VENDOR_NUMBER, buildVendorMsg(dateStr, gcOrder, dc, mc, extras));
   sendSms(CONFIG.OWNER_NUMBER,  buildOwnerOrderMsg(dateStr, gcUse, gcDone, gcIng, currentStock, target, gcOrder, dc, mc, extras));
 
@@ -91,100 +99,78 @@ function handleStock(data) {
 
 
 // ══════════════════════════════════════════════════════════
-//  ⑤ 공휴일 보정 목표재고 계산
+//  ⑤ 목표재고 계산 (그라데이션 + 공휴일 보정)
 // ══════════════════════════════════════════════════════════
 
-function getTargetWithHoliday(today, dayOfWeek, branchConfig) {
-  // 기본 목표
-  const base = (dayOfWeek === 5 || dayOfWeek === 6)
-    ? branchConfig.WEEKEND_TARGET
-    : branchConfig.WEEKDAY_TARGET;
+function getTargetWithHoliday(today, dayOfWeek) {
+  // 요일별 그라데이션 목표
+  const base = CONFIG.WONDANG.TARGET_BY_DAY[dayOfWeek];
 
-  // 내일부터 7일 내 공휴일/연휴 여부 체크
+  // 공휴일 감지 시 +1보
   const hasHoliday = checkUpcomingHoliday(today);
-
   if (hasHoliday) {
-    Logger.log('공휴일 감지 → 목표재고 +1보 보정');
+    Logger.log('공휴일 감지 → 목표재고 +1보 보정 (base:' + base + ' → ' + (base + 1) + ')');
     return base + 1;
   }
-
   return base;
 }
 
-// 내일~7일 내 공휴일 또는 토/일 연속 여부 확인
+// 내일~7일 내 공휴일/주말 연휴 감지
 function checkUpcomingHoliday(today) {
-  const year  = today.getFullYear();
-  const month = today.getMonth() + 1;
-
-  // 공공데이터 API 키가 있으면 실제 공휴일 체크
   if (CONFIG.HOLIDAY_API_KEY) {
     try {
+      const year  = today.getFullYear();
+      const month = today.getMonth() + 1;
       const holidays = getPublicHolidays(year, month);
-      // 다음달도 체크 (월말 기준)
       const nextMonth = month === 12 ? 1 : month + 1;
       const nextYear  = month === 12 ? year + 1 : year;
       const holidaysNext = getPublicHolidays(nextYear, nextMonth);
       const allHolidays  = holidays.concat(holidaysNext);
 
-      // 내일부터 7일 내 공휴일 있는지 확인
       for (let i = 1; i <= 7; i++) {
-        const checkDate = new Date(today);
-        checkDate.setDate(today.getDate() + i);
-        const yy = checkDate.getFullYear();
-        const mm = String(checkDate.getMonth() + 1).padStart(2, '0');
-        const dd = String(checkDate.getDate()).padStart(2, '0');
-        const dateKey = `${yy}${mm}${dd}`;
-        if (allHolidays.includes(dateKey)) {
-          Logger.log('공휴일 감지: ' + dateKey);
+        const d  = new Date(today);
+        d.setDate(today.getDate() + i);
+        const key = String(d.getFullYear()) +
+          String(d.getMonth()+1).padStart(2,'0') +
+          String(d.getDate()).padStart(2,'0');
+        if (allHolidays.includes(key)) {
+          Logger.log('공휴일 감지: ' + key);
           return true;
         }
       }
+      return false;
     } catch (err) {
-      Logger.log('공휴일 API 오류 (토/일 체크로 대체): ' + err.message);
-      return checkWeekendComing(today);
+      Logger.log('공휴일 API 오류 → 주말 체크로 대체: ' + err.message);
     }
   }
-
-  // API 키 없으면 토/일 연속 체크로 대체
-  return checkWeekendComing(today);
-}
-
-// API 키 없을 때 — 내일이 금요일이면 주말 연휴 예고로 간주
-function checkWeekendComing(today) {
+  // API 없으면 내일이 금/토이면 주말 연휴 예정으로 간주
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
   const dow = tomorrow.getDay();
-  // 내일이 금(5) 또는 토(6)이면 주말 연휴 예정
   return (dow === 5 || dow === 6);
 }
 
-// 공공데이터포털 공휴일 API 호출
 function getPublicHolidays(year, month) {
   const url =
     'https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo' +
     '?serviceKey=' + encodeURIComponent(CONFIG.HOLIDAY_API_KEY) +
     '&solYear=' + year +
-    '&solMonth=' + String(month).padStart(2, '0') +
-    '&_type=json' +
-    '&numOfRows=50';
-
-  const res    = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-  const json   = JSON.parse(res.getContentText());
-  const items  = json?.response?.body?.items?.item;
-
+    '&solMonth=' + String(month).padStart(2,'0') +
+    '&_type=json&numOfRows=50';
+  const res   = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  const json  = JSON.parse(res.getContentText());
+  const items = json?.response?.body?.items?.item;
   if (!items) return [];
-
-  // item이 배열이 아닐 수도 있음 (1개일 때 객체로 옴)
-  const list = Array.isArray(items) ? items : [items];
+  const list  = Array.isArray(items) ? items : [items];
   return list.map(item => String(item.locdate));
 }
 
 
-// ── ⑥ 알림 트리거 (22시 / 15시) ─────────────────────────
+// ── ⑥ 알림 트리거 ────────────────────────────────────────
 function sendOrderReminder() {
   const dateStr   = formatDate(new Date());
   const webAppUrl = ScriptApp.getService().getUrl();
-  sendSms('원당관리자번호입력', // ← 원당 관리자 번호로 교체
+  sendSms('원당관리자번호입력',
     `[장수한우곱창]\n📋 발주 입력 시간입니다\n${dateStr}\n──────────────────\n아래 링크에서 재고를 입력해주세요\n${webAppUrl}`
   );
 }
@@ -192,7 +178,7 @@ function sendOrderReminder() {
 function sendStockReminder() {
   const dateStr   = formatDate(new Date());
   const webAppUrl = ScriptApp.getService().getUrl();
-  sendSms('원당관리자번호입력', // ← 원당 관리자 번호로 교체
+  sendSms('원당관리자번호입력',
     `[장수한우곱창]\n📦 입고 확인 시간입니다\n${dateStr}\n──────────────────\n아래 링크에서 입고량을 입력해주세요\n${webAppUrl}`
   );
 }
@@ -210,21 +196,22 @@ function buildVendorMsg(dateStr, gcOrder, dc, mc, extras) {
 }
 
 function buildOwnerOrderMsg(dateStr, gcUse, gcDone, gcIng, currentStock, target, gcOrder, dc, mc, extras) {
-  const isHolidayBoost = target > CONFIG.WONDANG.WEEKEND_TARGET
-    ? false
-    : (target % 1 === 0 && target !== getBaseTarget(new Date().getDay(), CONFIG.WONDANG));
+  const baseTarget  = CONFIG.WONDANG.TARGET_BY_DAY[new Date().getDay()];
+  const holidayNote = target > baseTarget ? ` (+1 연휴보정)` : '';
+  const minMaxNote  = gcOrder === CONFIG.WONDANG.MIN_ORDER && Math.round(target - currentStock) < CONFIG.WONDANG.MIN_ORDER
+    ? ` (최소${CONFIG.WONDANG.MIN_ORDER}보 적용)`
+    : gcOrder === CONFIG.WONDANG.MAX_ORDER && Math.round(target - currentStock) > CONFIG.WONDANG.MAX_ORDER
+    ? ` (최대${CONFIG.WONDANG.MAX_ORDER}보 적용)`
+    : '';
 
   let msg = `[발주완료] 원당점\n${dateStr}\n──────────────────\n곱창 재고\n`;
   msg += `  쓰는것   ${pad(gcUse,                   5)} 보\n`;
   msg += `  연육완료 ${pad(gcDone,                  5)} 보\n`;
   msg += `  연육중   ${pad(gcIng,                   5)} 보\n`;
   msg += `  합계     ${pad(currentStock.toFixed(1), 5)} 보\n`;
-  msg += `  목표     ${pad(target,                  5)} 보`;
-  if (target !== getBaseTarget(new Date().getDay(), CONFIG.WONDANG)) {
-    msg += ` (+1 연휴보정)`;
-  }
-  msg += `\n──────────────────\n`;
-  msg += `곱창 발주  ${pad(gcOrder, 3)} 보\n`;
+  msg += `  목표     ${pad(target,                  5)} 보${holidayNote}\n`;
+  msg += `──────────────────\n`;
+  msg += `곱창 발주  ${pad(gcOrder, 3)} 보${minMaxNote}\n`;
   if (dc > 0) msg += `대창 발주  ${pad(dc, 3)} 보\n`;
   if (mc > 0) msg += `막창 발주  ${pad(mc, 3)} 보\n`;
   if (extras.length) msg += `추가       ${extras.join(' / ')}\n`;
@@ -281,11 +268,11 @@ function logOrderToSheet(dateStr, gcUse, gcDone, gcIng, total, target, gcOrder, 
   const ss    = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEET_ORDER) || ss.insertSheet(CONFIG.SHEET_ORDER);
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['날짜','지점','쓰는것','연육완료','연육중','현재고','목표','발주(곱창)','대창','막창','추가주문','연휴보정']);
+    sheet.appendRow(['날짜','지점','쓰는것','연육완료','연육중','현재고','목표','발주(곱창)','대창','막창','추가주문','비고']);
   }
-  const baseTarget = getBaseTarget(new Date().getDay(), CONFIG.WONDANG);
-  const isBoost    = target !== baseTarget ? 'O' : '-';
-  sheet.appendRow([dateStr,'원당점',gcUse,gcDone,gcIng,total,target,gcOrder,dc,mc,extras.join(', '),isBoost]);
+  const baseTarget = CONFIG.WONDANG.TARGET_BY_DAY[new Date().getDay()];
+  const note = target > baseTarget ? '연휴보정' : '-';
+  sheet.appendRow([dateStr,'원당점',gcUse,gcDone,gcIng,total,target,gcOrder,dc,mc,extras.join(', '),note]);
 }
 
 function logStockToSheet(dateStr, gc, dc, mc, extras) {
@@ -299,10 +286,6 @@ function logStockToSheet(dateStr, gc, dc, mc, extras) {
 
 
 // ── ⑩ 유틸 ──────────────────────────────────────────────
-function getBaseTarget(dayOfWeek, cfg) {
-  return (dayOfWeek === 5 || dayOfWeek === 6) ? cfg.WEEKEND_TARGET : cfg.WEEKDAY_TARGET;
-}
-
 function formatDate(d) {
   const days = ['일','월','화','수','목','금','토'];
   return String(d.getFullYear()).slice(2) + '.' +
