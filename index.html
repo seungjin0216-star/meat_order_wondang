@@ -1,306 +1,422 @@
-// ============================================================
-//  장수한우곱창 자동 발주 시스템 — Google Apps Script
-//  파일명: 코드.gs
-// ============================================================
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>원당점 발주·입고</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow-x:hidden}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f5f5f7;min-height:100vh}
+  .screen{display:none}.screen.active{display:block}
+  .container{width:100%;max-width:500px;margin:0 auto;padding:24px 20px 60px}
 
-const CONFIG = {
-  SOLAPI_API_KEY    : 'NCSMFQTOMYW4DOBV',
-  SOLAPI_API_SECRET : 'SMJIRV3CC3AU1WH3B8L0JK8H69SPZDAD',
-  SENDER_NUMBER     : '01041216995',
-  VENDOR_NUMBER     : '01053226995',
-  OWNER_NUMBER      : '01041216995',
+  /* S1 */
+  .brand{font-size:24px;font-weight:700;color:#1c1c1e;margin-bottom:6px}
+  .brand-loc{display:inline-block;background:#ede9fe;color:#5b21b6;font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;margin-bottom:24px}
+  .s1-label{font-size:13px;font-weight:600;color:#8e8e93;letter-spacing:.04em;margin-bottom:12px}
+  .type-card{display:flex;align-items:center;gap:16px;padding:20px 18px;border-radius:16px;border:2px solid #e0e0e0;background:#fff;margin-bottom:12px;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+  .type-card:active{opacity:.75;transform:scale(.98)}
+  .tc-order{border-color:#7c3aed;background:#faf5ff}
+  .tc-stock{border-color:#059669;background:#f0fdf9}
+  .tc-icon{font-size:34px;flex-shrink:0}
+  .tc-main{font-size:17px;font-weight:700;color:#1c1c1e}
+  .tc-sub{font-size:13px;color:#8e8e93;margin-top:3px}
+  .tc-time{margin-left:auto;font-size:13px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+  .tc-order .tc-time{background:#7c3aed;color:#fff}
+  .tc-stock .tc-time{background:#059669;color:#fff}
 
-  WONDANG: {
-    // 요일별 목표재고 (그라데이션 적용)
-    // 일=0, 월=1, 화=2, 수=3, 목=4, 금=5, 토=6
-    TARGET_BY_DAY : [8, 8, 8, 10, 11, 13, 13],
-    //               일  월  화   수   목  금  토
-    // 수(10): 목/금 수요 미리 대비 시작
-    // 목(11): 금요일 입고분 감안
-    // 금/토(13): 주말 최대치
+  /* 공통 헤더 */
+  .top-bar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .back-btn{width:40px;height:40px;border-radius:12px;background:#fff;border:1.5px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:20px;color:#636366;cursor:pointer;flex-shrink:0}
+  .page-title{font-size:18px;font-weight:700;color:#1c1c1e}
+  .page-sub{font-size:13px;color:#8e8e93;margin-top:2px}
 
-    MIN_ORDER : 2,   // 최소 발주량
-    MAX_ORDER : 4,   // 최대 발주량
-  },
+  /* 날짜 */
+  .date-pill{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;padding:12px 16px;margin-bottom:22px}
+  .dp-label{font-size:12px;color:#8e8e93}
+  .dp-val{font-size:16px;font-weight:700;color:#1c1c1e}
+  .dp-note{font-size:12px;color:#8e8e93;margin-left:auto}
 
-  HOLIDAY_API_KEY : '',  // 공공데이터포털 API 키 (발급 후 입력)
+  /* 섹션 */
+  .sec-title{font-size:12px;font-weight:700;color:#8e8e93;letter-spacing:.04em;margin:22px 0 10px;padding-bottom:7px;border-bottom:1.5px solid #e0e0e0}
 
-  SHEET_ORDER : '발주기록',
-  SHEET_STOCK : '입고기록',
-};
+  /* 필드 */
+  .field-card{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-radius:14px;background:#fff;border:1.5px solid #e0e0e0;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+  .field-card:active{border-color:#7c3aed}
+  .stock-card:active{border-color:#059669 !important}
+  .fc-label{font-size:16px;font-weight:600;color:#1c1c1e}
+  .fc-hint{font-size:12px;color:#8e8e93;margin-top:4px}
+  .fc-right{display:flex;align-items:baseline;gap:5px}
+  .fc-val{font-size:28px;font-weight:700;color:#1c1c1e;min-width:52px;text-align:right}
+  .fc-val.empty{color:#c7c7cc}
+  .fc-unit{font-size:14px;color:#8e8e93}
 
+  /* 체크칩 */
+  .check-row{display:flex;gap:10px;flex-wrap:wrap}
+  .check-chip{padding:10px 18px;border-radius:20px;font-size:15px;font-weight:600;border:1.5px solid #e0e0e0;background:#fff;color:#636366;cursor:pointer;transition:all .15s;user-select:none}
+  .check-chip:active{opacity:.7}
+  .chip-on-o{background:#ede9fe;border-color:#7c3aed;color:#5b21b6}
+  .chip-on-s{background:#d1fae5;border-color:#059669;color:#065f46}
 
-// ── ① HTML 반환 ──────────────────────────────────────────
-function doGet(e) {
-  return HtmlService
-    .createHtmlOutputFromFile('index')
-    .setTitle('원당점 발주·입고')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  /* 제출 */
+  .submit-btn{width:100%;padding:18px;border-radius:16px;font-size:17px;font-weight:700;border:none;cursor:pointer;margin-top:28px;transition:opacity .15s}
+  .submit-btn:active{opacity:.8}
+  .sb-o{background:#7c3aed;color:#fff}
+  .sb-s{background:#059669;color:#fff}
+
+  /* 다이얼 */
+  .dial-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end;justify-content:center}
+  .dial-ov.show{display:flex}
+  .dial-sheet{background:#fff;border-radius:24px 24px 0 0;padding:20px 16px 40px;width:100%}
+  .dial-lbl{font-size:13px;color:#8e8e93;margin-bottom:6px;padding:0 4px}
+  .dial-disp{font-size:52px;font-weight:700;text-align:right;padding:8px 8px 14px;border-bottom:1.5px solid #e0e0e0;margin-bottom:14px;min-height:80px;display:flex;align-items:center;justify-content:flex-end;gap:8px}
+  .d-num{color:#1c1c1e}
+  .d-hint{font-size:18px;color:#c7c7cc;font-weight:400}
+  .d-unit{font-size:20px;color:#8e8e93;font-weight:400}
+  .dk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .dk{height:64px;border-radius:14px;background:#f5f5f7;border:none;font-size:24px;font-weight:600;color:#1c1c1e;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:background .08s}
+  .dk:active{background:#e0e0e0}
+  .dk-sp{background:#e8e8ed;font-size:18px}
+  .dk-ok{color:#fff;font-size:17px;font-weight:700;grid-column:1/-1;height:58px;border-radius:16px}
+  .dk-ok-o{background:#7c3aed}
+  .dk-ok-s{background:#059669}
+
+  /* 완료 */
+  .done-wrap{padding:48px 0 24px;text-align:center}
+  .done-icon{font-size:64px;margin-bottom:18px}
+  .done-title{font-size:22px;font-weight:700;color:#1c1c1e;margin-bottom:8px}
+  .done-sub{font-size:15px;color:#636366;line-height:1.6;margin-bottom:24px}
+  .msg-preview{text-align:left;background:#f5f5f7;border-radius:14px;padding:16px 18px}
+  .mp-label{font-size:12px;color:#8e8e93;margin-bottom:10px}
+  .mp-body{font-size:13px;color:#1c1c1e;line-height:2;font-family:'Courier New',monospace;white-space:pre;overflow-x:auto}
+  .reset-btn{margin-top:16px;width:100%;padding:16px;border-radius:14px;background:#fff;border:1.5px solid #e0e0e0;font-size:16px;color:#636366;cursor:pointer}
+
+  /* 로딩 */
+  .loading-ov{display:none;position:fixed;inset:0;background:rgba(255,255,255,.9);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+  .loading-ov.show{display:flex}
+  .spinner{width:44px;height:44px;border:4px solid #e0e0e0;border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite}
+  .loading-text{font-size:15px;color:#636366}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- S1 선택 -->
+<div class="screen active" id="s1">
+  <div class="container">
+    <div class="brand">🥩 장수한우곱창</div>
+    <div class="brand-loc">🟣 원당 본점</div>
+    <div class="s1-label">입력 유형을 선택하세요</div>
+    <div class="type-card tc-order" onclick="go('order')">
+      <div class="tc-icon">📋</div>
+      <div><div class="tc-main">발주 입력</div><div class="tc-sub">현재 재고 → 자동 발주</div></div>
+      <div class="tc-time">22:00</div>
+    </div>
+    <div class="type-card tc-stock" onclick="go('stock')">
+      <div class="tc-icon">📦</div>
+      <div><div class="tc-main">입고 입력</div><div class="tc-sub">오늘 실제 입고량 입력</div></div>
+      <div class="tc-time">15:00</div>
+    </div>
+  </div>
+</div>
+
+<!-- S2 발주 -->
+<div class="screen" id="s-order">
+  <div class="container">
+    <div class="top-bar">
+      <div class="back-btn" onclick="goS1()">←</div>
+      <div><div class="page-title">📋 발주 입력</div><div class="page-sub">🟣 원당 본점</div></div>
+    </div>
+    <div class="date-pill">
+      <span class="dp-label">발주일</span>
+      <span class="dp-val" id="date-o"></span>
+      <span class="dp-note">내일 납품분</span>
+    </div>
+    <div class="sec-title">곱창 재고</div>
+    <div class="field-card" onclick="openDial('o-gu','곱창 · 쓰고 있는 것','o',true)">
+      <div><div class="fc-label">쓰고 있는 것</div><div class="fc-hint">현재 홀 사용 중</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="o-gu">-</div><div class="fc-unit">보</div></div>
+    </div>
+    <div class="field-card" onclick="openDial('o-gd','곱창 · 연육 완료','o',true)">
+      <div><div class="fc-label">연육 완료</div><div class="fc-hint">냉장 보관 완료분</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="o-gd">-</div><div class="fc-unit">보</div></div>
+    </div>
+    <div class="field-card" onclick="openDial('o-gi','곱창 · 연육 중','o',true)">
+      <div><div class="fc-label">연육 중</div><div class="fc-hint">현재 연육 진행분</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="o-gi">-</div><div class="fc-unit">보</div></div>
+    </div>
+    <div class="sec-title">대창 · 막창</div>
+    <div class="field-card" onclick="openDial('o-dc','대창 발주량','o',false)">
+      <div><div class="fc-label">대창</div><div class="fc-hint">발주할 수량 직접 입력</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="o-dc">-</div><div class="fc-unit">보</div></div>
+    </div>
+    <div class="field-card" onclick="openDial('o-mc','막창 발주량','o',false)">
+      <div><div class="fc-label">막창</div><div class="fc-hint">발주할 수량 직접 입력</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="o-mc">-</div><div class="fc-unit">보</div></div>
+    </div>
+    <div class="sec-title">추가 주문 (해당 항목만 체크)</div>
+    <div class="check-row" id="chips-o">
+      <div class="check-chip" onclick="toggleChip(this,'o')">벌집양</div>
+      <div class="check-chip" onclick="toggleChip(this,'o')">천엽</div>
+      <div class="check-chip" onclick="toggleChip(this,'o')">간</div>
+    </div>
+    <button class="submit-btn sb-o" onclick="submitOrder()">발주 제출하기</button>
+  </div>
+</div>
+
+<!-- S3 입고 -->
+<div class="screen" id="s-stock">
+  <div class="container">
+    <div class="top-bar">
+      <div class="back-btn" onclick="goS1()">←</div>
+      <div><div class="page-title">📦 입고 입력</div><div class="page-sub">🟣 원당 본점</div></div>
+    </div>
+    <div class="date-pill">
+      <span class="dp-label">입고일</span>
+      <span class="dp-val" id="date-s"></span>
+      <span class="dp-note">오늘 입고분</span>
+    </div>
+    <div class="sec-title">곱창</div>
+    <div class="field-card stock-card" onclick="openDial('s-gc','곱창 입고량','s',false)">
+      <div><div class="fc-label">곱창</div><div class="fc-hint">실제 수령한 수량</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="s-gc">-</div><div class="fc-unit">보</div></div>
+    </div>
+    <div class="sec-title">대창 · 막창</div>
+    <div class="field-card stock-card" onclick="openDial('s-dc','대창 입고량','s',false)">
+      <div><div class="fc-label">대창</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="s-dc">-</div><div class="fc-unit">보</div></div>
+    </div>
+    <div class="field-card stock-card" onclick="openDial('s-mc','막창 입고량','s',false)">
+      <div><div class="fc-label">막창</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="s-mc">-</div><div class="fc-unit">보</div></div>
+    </div>
+    <div class="sec-title">기타 입고 (해당 항목만 체크)</div>
+    <div class="check-row" id="chips-s">
+      <div class="check-chip" onclick="toggleChip(this,'s')">벌집양</div>
+      <div class="check-chip" onclick="toggleChip(this,'s')">천엽</div>
+      <div class="check-chip" onclick="toggleChip(this,'s')">간</div>
+    </div>
+    <button class="submit-btn sb-s" onclick="submitStock()">입고 제출하기</button>
+  </div>
+</div>
+
+<!-- S4 완료 -->
+<div class="screen" id="s-done">
+  <div class="container">
+    <div class="done-wrap">
+      <div class="done-icon">✅</div>
+      <div class="done-title" id="done-title"></div>
+      <div class="done-sub" id="done-sub"></div>
+      <div class="msg-preview">
+        <div class="mp-label">📨 사장님 수신 문자 미리보기</div>
+        <div class="mp-body" id="mp-body"></div>
+      </div>
+      <button class="reset-btn" onclick="goS1()">← 처음으로 돌아가기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 다이얼 -->
+<div class="dial-ov" id="dial-ov" onclick="dialClose(event)">
+  <div class="dial-sheet" onclick="event.stopPropagation()">
+    <div class="dial-lbl" id="dial-lbl"></div>
+    <div class="dial-disp" id="dial-disp">
+      <span class="d-hint">숫자 입력</span><span class="d-unit">보</span>
+    </div>
+    <div class="dk-grid">
+      <div class="dk" onclick="dk('1')">1</div><div class="dk" onclick="dk('2')">2</div><div class="dk" onclick="dk('3')">3</div>
+      <div class="dk" onclick="dk('4')">4</div><div class="dk" onclick="dk('5')">5</div><div class="dk" onclick="dk('6')">6</div>
+      <div class="dk" onclick="dk('7')">7</div><div class="dk" onclick="dk('8')">8</div><div class="dk" onclick="dk('9')">9</div>
+      <div class="dk dk-sp" id="dk-dot" onclick="dk('.')"> · </div>
+      <div class="dk" onclick="dk('0')">0</div>
+      <div class="dk dk-sp" onclick="dkDel()">⌫</div>
+      <div class="dk dk-ok" id="dk-ok" onclick="dkOk()">확인</div>
+    </div>
+  </div>
+</div>
+
+<!-- 로딩 -->
+<div class="loading-ov" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">발주 전송 중...</div>
+</div>
+
+<script>
+// ── 설정: GAS 웹앱 URL ──────────────────────────────
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz7e-WdPKFFTSDHoDzJn2H5LicFRKbeDDCo1aVWq-AzQDGHUVgEQmYTbs394q6ykbru2g/exec';
+
+// ── 날짜 ──────────────────────────────────────────────
+const DAYS=['일','월','화','수','목','금','토'];
+function fmtDate(d){
+  return String(d.getFullYear()).slice(2)+'.'+
+    String(d.getMonth()+1).padStart(2,'0')+'.'+
+    String(d.getDate()).padStart(2,'0')+'('+DAYS[d.getDay()]+')';
 }
+const today=new Date();
+document.getElementById('date-o').textContent=fmtDate(today);
+document.getElementById('date-s').textContent=fmtDate(today);
 
-// ── ② POST 수신 ──────────────────────────────────────────
-function doPost(e) {
-  try {
-    const data = JSON.parse(e.postData.contents);
-    if (data.type === 'order') return handleOrder(data);
-    if (data.type === 'stock') return handleStock(data);
-    return jsonResponse({ ok: false, message: '알 수 없는 type' });
-  } catch (err) {
-    Logger.log('doPost 오류: ' + err.message);
-    return jsonResponse({ ok: false, message: err.message });
-  }
+// ── 화면 전환 ─────────────────────────────────────────
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
 }
-
-// ── ③ 발주 처리 ──────────────────────────────────────────
-function handleOrder(data) {
-  const gcUse  = parseFloat(data.gc_use)  || 0;
-  const gcDone = parseFloat(data.gc_done) || 0;
-  const gcIng  = parseFloat(data.gc_ing)  || 0;
-  const dc     = parseFloat(data.dc)      || 0;
-  const mc     = parseFloat(data.mc)      || 0;
-  const extras = data.extras || [];
-
-  const now       = new Date();
-  const dateStr   = formatDate(now);
-  const dayOfWeek = now.getDay();
-
-  const currentStock = gcUse + gcDone + gcIng;
-
-  // 공휴일 보정 포함 목표재고
-  const target = getTargetWithHoliday(now, dayOfWeek);
-
-  // 발주량 계산: 최소 2보, 최대 4보
-  const rawOrder  = target - currentStock;
-  const calcOrder = rawOrder <= 0 ? 0 : Math.round(rawOrder);
-  const gcOrder   = Math.min(Math.max(calcOrder, CONFIG.WONDANG.MIN_ORDER), CONFIG.WONDANG.MAX_ORDER);
-
-  Logger.log(`발주계산 | 요일:${dayOfWeek} 현재고:${currentStock} 목표:${target} 계산:${calcOrder} 최종:${gcOrder}`);
-
-  logOrderToSheet(dateStr, gcUse, gcDone, gcIng, currentStock, target, gcOrder, dc, mc, extras);
-  sendSms(CONFIG.VENDOR_NUMBER, buildVendorMsg(dateStr, gcOrder, dc, mc, extras));
-  sendSms(CONFIG.OWNER_NUMBER,  buildOwnerOrderMsg(dateStr, gcUse, gcDone, gcIng, currentStock, target, gcOrder, dc, mc, extras));
-
-  return jsonResponse({ ok: true, gc_order: gcOrder, target: target });
-}
-
-// ── ④ 입고 처리 ──────────────────────────────────────────
-function handleStock(data) {
-  const gc     = parseInt(data.gc)  || 0;
-  const dc     = parseInt(data.dc)  || 0;
-  const mc     = parseInt(data.mc)  || 0;
-  const extras = data.extras || [];
-
-  const dateStr = formatDate(new Date());
-  logStockToSheet(dateStr, gc, dc, mc, extras);
-  sendSms(CONFIG.OWNER_NUMBER, buildOwnerStockMsg(dateStr, gc, dc, mc, extras));
-
-  return jsonResponse({ ok: true });
-}
-
-
-// ══════════════════════════════════════════════════════════
-//  ⑤ 목표재고 계산 (그라데이션 + 공휴일 보정)
-// ══════════════════════════════════════════════════════════
-
-function getTargetWithHoliday(today, dayOfWeek) {
-  // 요일별 그라데이션 목표
-  const base = CONFIG.WONDANG.TARGET_BY_DAY[dayOfWeek];
-
-  // 공휴일 감지 시 +1보
-  const hasHoliday = checkUpcomingHoliday(today);
-  if (hasHoliday) {
-    Logger.log('공휴일 감지 → 목표재고 +1보 보정 (base:' + base + ' → ' + (base + 1) + ')');
-    return base + 1;
-  }
-  return base;
-}
-
-// 내일~7일 내 공휴일/주말 연휴 감지
-function checkUpcomingHoliday(today) {
-  if (CONFIG.HOLIDAY_API_KEY) {
-    try {
-      const year  = today.getFullYear();
-      const month = today.getMonth() + 1;
-      const holidays = getPublicHolidays(year, month);
-      const nextMonth = month === 12 ? 1 : month + 1;
-      const nextYear  = month === 12 ? year + 1 : year;
-      const holidaysNext = getPublicHolidays(nextYear, nextMonth);
-      const allHolidays  = holidays.concat(holidaysNext);
-
-      for (let i = 1; i <= 7; i++) {
-        const d  = new Date(today);
-        d.setDate(today.getDate() + i);
-        const key = String(d.getFullYear()) +
-          String(d.getMonth()+1).padStart(2,'0') +
-          String(d.getDate()).padStart(2,'0');
-        if (allHolidays.includes(key)) {
-          Logger.log('공휴일 감지: ' + key);
-          return true;
-        }
-      }
-      return false;
-    } catch (err) {
-      Logger.log('공휴일 API 오류 → 주말 체크로 대체: ' + err.message);
-    }
-  }
-  // API 없으면 내일이 금/토이면 주말 연휴 예정으로 간주
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const dow = tomorrow.getDay();
-  return (dow === 5 || dow === 6);
-}
-
-function getPublicHolidays(year, month) {
-  const url =
-    'https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo' +
-    '?serviceKey=' + encodeURIComponent(CONFIG.HOLIDAY_API_KEY) +
-    '&solYear=' + year +
-    '&solMonth=' + String(month).padStart(2,'0') +
-    '&_type=json&numOfRows=50';
-  const res   = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-  const json  = JSON.parse(res.getContentText());
-  const items = json?.response?.body?.items?.item;
-  if (!items) return [];
-  const list  = Array.isArray(items) ? items : [items];
-  return list.map(item => String(item.locdate));
-}
-
-
-// ── ⑥ 알림 트리거 ────────────────────────────────────────
-function sendOrderReminder() {
-  const dateStr   = formatDate(new Date());
-  const webAppUrl = ScriptApp.getService().getUrl();
-  sendSms('원당관리자번호입력',
-    `[장수한우곱창]\n📋 발주 입력 시간입니다\n${dateStr}\n──────────────────\n아래 링크에서 재고를 입력해주세요\n${webAppUrl}`
-  );
-}
-
-function sendStockReminder() {
-  const dateStr   = formatDate(new Date());
-  const webAppUrl = ScriptApp.getService().getUrl();
-  sendSms('원당관리자번호입력',
-    `[장수한우곱창]\n📦 입고 확인 시간입니다\n${dateStr}\n──────────────────\n아래 링크에서 입고량을 입력해주세요\n${webAppUrl}`
-  );
-}
-
-
-// ── ⑦ 문자 내용 생성 ─────────────────────────────────────
-function buildVendorMsg(dateStr, gcOrder, dc, mc, extras) {
-  let msg = `[장수한우곱창 발주]\n원당점  ·  ${dateStr}\n──────────────────\n`;
-  msg += `곱창  ${pad(gcOrder, 3)} 보\n`;
-  if (dc > 0) msg += `대창  ${pad(dc, 3)} 보\n`;
-  if (mc > 0) msg += `막창  ${pad(mc, 3)} 보\n`;
-  if (extras.length) msg += `추가  ${extras.join(' / ')}\n`;
-  msg += `──────────────────\n내일 납품 부탁드립니다.`;
-  return msg;
-}
-
-function buildOwnerOrderMsg(dateStr, gcUse, gcDone, gcIng, currentStock, target, gcOrder, dc, mc, extras) {
-  const baseTarget  = CONFIG.WONDANG.TARGET_BY_DAY[new Date().getDay()];
-  const holidayNote = target > baseTarget ? ` (+1 연휴보정)` : '';
-  const minMaxNote  = gcOrder === CONFIG.WONDANG.MIN_ORDER && Math.round(target - currentStock) < CONFIG.WONDANG.MIN_ORDER
-    ? ` (최소${CONFIG.WONDANG.MIN_ORDER}보 적용)`
-    : gcOrder === CONFIG.WONDANG.MAX_ORDER && Math.round(target - currentStock) > CONFIG.WONDANG.MAX_ORDER
-    ? ` (최대${CONFIG.WONDANG.MAX_ORDER}보 적용)`
-    : '';
-
-  let msg = `[발주완료] 원당점\n${dateStr}\n──────────────────\n곱창 재고\n`;
-  msg += `  쓰는것   ${pad(gcUse,                   5)} 보\n`;
-  msg += `  연육완료 ${pad(gcDone,                  5)} 보\n`;
-  msg += `  연육중   ${pad(gcIng,                   5)} 보\n`;
-  msg += `  합계     ${pad(currentStock.toFixed(1), 5)} 보\n`;
-  msg += `  목표     ${pad(target,                  5)} 보${holidayNote}\n`;
-  msg += `──────────────────\n`;
-  msg += `곱창 발주  ${pad(gcOrder, 3)} 보${minMaxNote}\n`;
-  if (dc > 0) msg += `대창 발주  ${pad(dc, 3)} 보\n`;
-  if (mc > 0) msg += `막창 발주  ${pad(mc, 3)} 보\n`;
-  if (extras.length) msg += `추가       ${extras.join(' / ')}\n`;
-  msg += `──────────────────\n업체 문자 발송완료 ✅`;
-  return msg;
-}
-
-function buildOwnerStockMsg(dateStr, gc, dc, mc, extras) {
-  let msg = `[입고확인] 원당점\n${dateStr}\n──────────────────\n`;
-  msg += `곱창  ${pad(gc, 3)} 보\n`;
-  if (dc > 0) msg += `대창  ${pad(dc, 3)} 보\n`;
-  if (mc > 0) msg += `막창  ${pad(mc, 3)} 보\n`;
-  if (extras.length) msg += `기타  ${extras.join(' / ')}\n`;
-  msg += `──────────────────\n입고 확인완료 ✅`;
-  return msg;
-}
-
-
-// ── ⑧ 솔라피 SMS ─────────────────────────────────────────
-function sendSms(to, text) {
-  const date      = new Date().toISOString();
-  const salt      = Utilities.getUuid();
-  const signature = computeHmac(CONFIG.SOLAPI_API_SECRET, date + salt);
-
-  const res = UrlFetchApp.fetch('https://api.solapi.com/messages/v4/send', {
-    method      : 'post',
-    contentType : 'application/json',
-    headers     : {
-      'Authorization': `HMAC-SHA256 apiKey=${CONFIG.SOLAPI_API_KEY}, date=${date}, salt=${salt}, signature=${signature}`
-    },
-    payload     : JSON.stringify({ message: { to, from: CONFIG.SENDER_NUMBER, text } }),
-    muteHttpExceptions: true,
+function go(t){show('s-'+t);}
+function goS1(){show('s1');resetAll();}
+function resetAll(){
+  ['o-gu','o-gd','o-gi','o-dc','o-mc','s-gc','s-dc','s-mc'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.textContent='-';el.classList.add('empty');}
   });
+  document.querySelectorAll('.check-chip').forEach(c=>c.classList.remove('chip-on-o','chip-on-s'));
+}
 
-  const result = JSON.parse(res.getContentText());
-  if (result.errorCode) {
-    Logger.log('SMS 오류: ' + JSON.stringify(result));
-  } else {
-    Logger.log('SMS 발송완료 → ' + to);
+// ── 체크칩 ────────────────────────────────────────────
+function toggleChip(el,t){el.classList.toggle(t==='o'?'chip-on-o':'chip-on-s');}
+function getChips(rowId){
+  return Array.from(document.querySelectorAll('#'+rowId+' .check-chip'))
+    .filter(c=>c.classList.contains('chip-on-o')||c.classList.contains('chip-on-s'))
+    .map(c=>c.textContent.trim());
+}
+
+// ── 다이얼 ────────────────────────────────────────────
+let dTarget=null,dBuf='',dDot=true,dHas=false;
+function openDial(id,lbl,t,dot){
+  dTarget=document.getElementById(id);dBuf='';dDot=dot;dHas=false;
+  document.getElementById('dial-lbl').textContent=lbl;
+  renderDisp();
+  const dotEl=document.getElementById('dk-dot');
+  dotEl.style.opacity=dot?'1':'0.3';
+  dotEl.style.pointerEvents=dot?'':'none';
+  const ok=document.getElementById('dk-ok');
+  ok.className='dk dk-ok '+(t==='o'?'dk-ok-o':'dk-ok-s');
+  document.getElementById('dial-ov').classList.add('show');
+}
+function renderDisp(){
+  const el=document.getElementById('dial-disp');
+  el.innerHTML=dHas
+    ?`<span class="d-num">${dBuf}</span><span class="d-unit">보</span>`
+    :'<span class="d-hint">숫자 입력</span><span class="d-unit">보</span>';
+}
+function dk(k){
+  if(k==='.'&&(!dDot||dBuf.includes('.')))return;
+  if(!dHas&&k==='.')dBuf='0';
+  else if(dBuf==='0'&&k!=='.')dBuf=k;
+  else dBuf+=k;
+  if(dBuf.length>5)return;
+  dHas=true;renderDisp();
+}
+function dkDel(){
+  if(!dHas)return;
+  dBuf=dBuf.slice(0,-1);
+  if(dBuf===''||dBuf==='0'){dBuf='';dHas=false;}
+  renderDisp();
+}
+function dkOk(){
+  if(dTarget){
+    if(!dHas||dBuf===''){dTarget.textContent='-';dTarget.classList.add('empty');}
+    else{dTarget.textContent=dBuf.replace(/\.$/,'');dTarget.classList.remove('empty');}
   }
+  document.getElementById('dial-ov').classList.remove('show');
+}
+function dialClose(e){document.getElementById('dial-ov').classList.remove('show');}
+
+// ── 값 읽기 ──────────────────────────────────────────
+function gv(id){const t=document.getElementById(id).textContent.trim();return(t==='-'||t==='')?0:parseFloat(t);}
+function pad(s,n){s=String(s);while(s.length<n)s=' '+s;return s;}
+function showLoading(v){document.getElementById('loading').classList[v?'add':'remove']('show');}
+
+// ── 로컬 발주량 계산 (미리보기용) ───────────────────
+function calcOrder(gu,gd,gi){
+  const total=gu+gd+gi;
+  const day=new Date().getDay();
+  const target=(day===5||day===6)?13:8;
+  const raw=target-total;
+  return{gc_order:raw<=0?0:Math.round(raw),target:target};
 }
 
-function computeHmac(secret, data) {
-  const hash = Utilities.computeHmacSha256Signature(
-    Utilities.newBlob(data).getBytes(),
-    Utilities.newBlob(secret).getBytes()
-  );
-  return hash.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
-}
+// ── 발주 제출 ─────────────────────────────────────────
+function submitOrder(){
+  const gu=gv('o-gu'),gd=gv('o-gd'),gi=gv('o-gi');
+  const dc=gv('o-dc'),mc=gv('o-mc');
+  const extras=getChips('chips-o');
+  const dateStr=document.getElementById('date-o').textContent;
 
-
-// ── ⑨ 스프레드시트 기록 ──────────────────────────────────
-function logOrderToSheet(dateStr, gcUse, gcDone, gcIng, total, target, gcOrder, dc, mc, extras) {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEET_ORDER) || ss.insertSheet(CONFIG.SHEET_ORDER);
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['날짜','지점','쓰는것','연육완료','연육중','현재고','목표','발주(곱창)','대창','막창','추가주문','비고']);
+  if(gu===0&&gd===0&&gi===0){
+    alert('곱창 재고를 최소 한 칸 이상 입력해주세요.\n(재고가 없으면 0을 입력하세요)');
+    return;
   }
-  const baseTarget = CONFIG.WONDANG.TARGET_BY_DAY[new Date().getDay()];
-  const note = target > baseTarget ? '연휴보정' : '-';
-  sheet.appendRow([dateStr,'원당점',gcUse,gcDone,gcIng,total,target,gcOrder,dc,mc,extras.join(', '),note]);
+
+  showLoading(true);
+
+  const payload={type:'order',branch:'wondang',gc_use:gu,gc_done:gd,gc_ing:gi,dc:dc,mc:mc,extras:extras,date:dateStr};
+
+  // GAS에 전송 (no-cors: 응답 못 읽지만 GAS는 실행됨)
+  fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  .then(()=>{
+    showLoading(false);
+    const r=calcOrder(gu,gd,gi);
+    const total=(gu+gd+gi).toFixed(1);
+    let preview=
+      `[발주완료] 원당점\n${dateStr}\n──────────────────\n곱창 재고\n`+
+      `  쓰는것   ${pad(gu,5)} 보\n`+
+      `  연육완료 ${pad(gd,5)} 보\n`+
+      `  연육중   ${pad(gi,5)} 보\n`+
+      `  합계     ${pad(total,5)} 보\n`+
+      `  목표     ${pad(r.target,5)} 보\n`+
+      `──────────────────\n`+
+      `곱창 발주  ${pad(r.gc_order,3)} 보\n`;
+    if(dc>0)preview+=`대창 발주  ${pad(dc,3)} 보\n`;
+    if(mc>0)preview+=`막창 발주  ${pad(mc,3)} 보\n`;
+    if(extras.length)preview+=`추가       ${extras.join(' / ')}\n`;
+    preview+=`──────────────────\n업체 문자 발송완료 ✅`;
+    document.getElementById('done-title').textContent='원당점 발주 완료';
+    document.getElementById('done-sub').textContent=dateStr+' 발주가 자동 전송되었습니다';
+    document.getElementById('mp-body').textContent=preview;
+    show('s-done');
+  })
+  .catch(err=>{
+    showLoading(false);
+    alert('전송 오류\n'+err.message);
+  });
 }
 
-function logStockToSheet(dateStr, gc, dc, mc, extras) {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEET_STOCK) || ss.insertSheet(CONFIG.SHEET_STOCK);
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['날짜','지점','곱창 입고','대창 입고','막창 입고','기타']);
+// ── 입고 제출 ─────────────────────────────────────────
+function submitStock(){
+  const gc=gv('s-gc'),dc=gv('s-dc'),mc=gv('s-mc');
+  const extras=getChips('chips-s');
+  const dateStr=document.getElementById('date-s').textContent;
+
+  if(gc===0&&dc===0&&mc===0&&extras.length===0){
+    alert('입고 내역을 최소 하나 이상 입력해주세요.');
+    return;
   }
-  sheet.appendRow([dateStr,'원당점',gc,dc,mc,extras.join(', ')]);
-}
 
+  showLoading(true);
 
-// ── ⑩ 유틸 ──────────────────────────────────────────────
-function formatDate(d) {
-  const days = ['일','월','화','수','목','금','토'];
-  return String(d.getFullYear()).slice(2) + '.' +
-    String(d.getMonth()+1).padStart(2,'0') + '.' +
-    String(d.getDate()).padStart(2,'0') + '(' + days[d.getDay()] + ')';
-}
+  const payload={type:'stock',branch:'wondang',gc:gc,dc:dc,mc:mc,extras:extras,date:dateStr};
 
-function pad(val, len) {
-  let s = String(val);
-  while (s.length < len) s = ' ' + s;
-  return s;
+  fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  .then(()=>{
+    showLoading(false);
+    let preview=`[입고확인] 원당점\n${dateStr}\n──────────────────\n`+
+      `곱창  ${pad(gc,3)} 보\n`;
+    if(dc>0)preview+=`대창  ${pad(dc,3)} 보\n`;
+    if(mc>0)preview+=`막창  ${pad(mc,3)} 보\n`;
+    if(extras.length)preview+=`기타  ${extras.join(' / ')}\n`;
+    preview+=`──────────────────\n입고 확인완료 ✅`;
+    document.getElementById('done-title').textContent='원당점 입고 완료';
+    document.getElementById('done-sub').textContent=dateStr+' 입고 내역이 전송되었습니다';
+    document.getElementById('mp-body').textContent=preview;
+    show('s-done');
+  })
+  .catch(err=>{
+    showLoading(false);
+    alert('전송 오류\n'+err.message);
+  });
 }
-
-function jsonResponse(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+</script>
+</body>
+</html>
