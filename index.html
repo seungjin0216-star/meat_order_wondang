@@ -160,6 +160,7 @@
       <div class="check-chip" onclick="toggleChip(this,'o')">벌집양</div>
       <div class="check-chip" onclick="toggleChip(this,'o')">천엽</div>
       <div class="check-chip" onclick="toggleChip(this,'o')">간</div>
+      <div class="check-chip" onclick="toggleChip(this,'o')">간(반)</div>
     </div>
     <button class="submit-btn sb-o" onclick="submitOrder()">발주 제출하기</button>
   </div>
@@ -196,6 +197,7 @@
       <div class="check-chip" onclick="toggleChip(this,'s')">벌집양</div>
       <div class="check-chip" onclick="toggleChip(this,'s')">천엽</div>
       <div class="check-chip" onclick="toggleChip(this,'s')">간</div>
+      <div class="check-chip" onclick="toggleChip(this,'s')">간(반)</div>
     </div>
     <button class="submit-btn sb-s" onclick="submitStock()">입고 제출하기</button>
   </div>
@@ -328,13 +330,20 @@ function gv(id){const t=document.getElementById(id).textContent.trim();return(t=
 function pad(s,n){s=String(s);while(s.length<n)s=' '+s;return s;}
 function showLoading(v){document.getElementById('loading').classList[v?'add':'remove']('show');}
 
-// ── 로컬 발주량 계산 (미리보기용) ───────────────────
-function calcOrder(gu,gd,gi){
-  const total=gu+gd+gi;
-  const day=new Date().getDay();
-  const target=(day===5||day===6)?13:8;
-  const raw=target-total;
-  return{gc_order:raw<=0?0:Math.round(raw),target:target};
+// ── 로컬 발주량 계산 (미리보기용 — GAS 로직과 동일하게 유지) ───
+// 요일별 목표재고: 일8 월8 화8 수10 목11 금13 토13
+const TARGET_BY_DAY = [8, 8, 8, 10, 11, 13, 13];
+const MIN_ORDER = 2;
+const MAX_ORDER = 4;
+
+function calcOrder(gu, gd, gi) {
+  const total  = gu + gd + gi;
+  const day    = new Date().getDay();
+  const target = TARGET_BY_DAY[day];
+  const raw    = target - total;
+  const calc   = raw <= 0 ? 0 : Math.round(raw);
+  const order  = Math.min(Math.max(calc, MIN_ORDER), MAX_ORDER);
+  return { gc_order: order, target: target };
 }
 
 // ── 발주 제출 ─────────────────────────────────────────
@@ -359,6 +368,13 @@ function submitOrder(){
     showLoading(false);
     const r=calcOrder(gu,gd,gi);
     const total=(gu+gd+gi).toFixed(1);
+    const raw=r.target-(gu+gd+gi);
+    const calcRaw=raw<=0?0:Math.round(raw);
+    const minMaxNote=r.gc_order===MIN_ORDER&&calcRaw<MIN_ORDER
+      ? ` (최소${MIN_ORDER}보 적용)`
+      : r.gc_order===MAX_ORDER&&calcRaw>MAX_ORDER
+      ? ` (최대${MAX_ORDER}보 적용)`
+      : '';
     let preview=
       `[발주완료] 원당점\n${dateStr}\n──────────────────\n곱창 재고\n`+
       `  쓰는것   ${pad(gu,5)} 보\n`+
@@ -367,7 +383,7 @@ function submitOrder(){
       `  합계     ${pad(total,5)} 보\n`+
       `  목표     ${pad(r.target,5)} 보\n`+
       `──────────────────\n`+
-      `곱창 발주  ${pad(r.gc_order,3)} 보\n`;
+      `곱창 발주  ${pad(r.gc_order,3)} 보${minMaxNote}\n`;
     if(dc>0)preview+=`대창 발주  ${pad(dc,3)} 보\n`;
     if(mc>0)preview+=`막창 발주  ${pad(mc,3)} 보\n`;
     if(extras.length)preview+=`추가       ${extras.join(' / ')}\n`;
