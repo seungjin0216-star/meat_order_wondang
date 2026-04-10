@@ -1,8 +1,6 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="ko">
 <head>
- <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="manifest" href="manifest.json">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>원당점 발주·입고</title>
@@ -163,6 +161,7 @@
       <div class="check-chip" onclick="toggleChip(this,'o')">천엽</div>
       <div class="check-chip" onclick="toggleChip(this,'o')">간</div>
       <div class="check-chip" onclick="toggleChip(this,'o')">간(반)</div>
+      <div class="check-chip" onclick="toggleChip(this,'o')">내장</div>
     </div>
     <button class="submit-btn sb-o" onclick="submitOrder()">발주 제출하기</button>
   </div>
@@ -200,6 +199,7 @@
       <div class="check-chip" onclick="toggleChip(this,'s')">천엽</div>
       <div class="check-chip" onclick="toggleChip(this,'s')">간</div>
       <div class="check-chip" onclick="toggleChip(this,'s')">간(반)</div>
+      <div class="check-chip" onclick="toggleChip(this,'s')">내장</div>
     </div>
     <button class="submit-btn sb-s" onclick="submitStock()">입고 제출하기</button>
   </div>
@@ -248,7 +248,7 @@
 
 <script>
 // ── 설정: GAS 웹앱 URL ──────────────────────────────
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx47OdbrHG1JQwEjMQbq2_bZ-RluuMMIwuXCm-ZZ9MrUswkrIISXWer4w2CFw63oHiCHQ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz7e-WdPKFFTSDHoDzJn2H5LicFRKbeDDCo1aVWq-AzQDGHUVgEQmYTbs394q6ykbru2g/exec';
 
 // ── 날짜 ──────────────────────────────────────────────
 const DAYS=['일','월','화','수','목','금','토'];
