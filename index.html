@@ -184,7 +184,7 @@
       <div><div class="fc-label">곱창</div><div class="fc-hint">실제 수령한 수량</div></div>
       <div class="fc-right"><div class="fc-val empty" id="s-gc">-</div><div class="fc-unit">보</div></div>
     </div>
-    <div class="sec-title">대창 · 막창</div>
+    <div class="sec-title">대창 · 막창 · 박수</div>
     <div class="field-card stock-card" onclick="openDial('s-dc','대창 입고량','s',false)">
       <div><div class="fc-label">대창</div></div>
       <div class="fc-right"><div class="fc-val empty" id="s-dc">-</div><div class="fc-unit">보</div></div>
@@ -192,6 +192,10 @@
     <div class="field-card stock-card" onclick="openDial('s-mc','막창 입고량','s',false)">
       <div><div class="fc-label">막창</div></div>
       <div class="fc-right"><div class="fc-val empty" id="s-mc">-</div><div class="fc-unit">보</div></div>
+    </div>
+    <div class="field-card stock-card" onclick="openDial('s-bs','박수 입고량','s',false)">
+      <div><div class="fc-label">박수</div><div class="fc-hint">실제 수령한 수량</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="s-bs">-</div><div class="fc-unit">개</div></div>
     </div>
     <div class="sec-title">기타 입고 (해당 항목만 체크)</div>
     <div class="check-row" id="chips-s">
@@ -248,7 +252,7 @@
 
 <script>
 // ── 설정: GAS 웹앱 URL ──────────────────────────────
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxGI8vk9OMDjITxQvFinkeHYxeOaTj0aaxP_QVwhp1fKh9wBcTzRYFDJ6Dy15QMfQozeA/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz7e-WdPKFFTSDHoDzJn2H5LicFRKbeDDCo1aVWq-AzQDGHUVgEQmYTbs394q6ykbru2g/exec';
 
 // ── 날짜 ──────────────────────────────────────────────
 const DAYS=['일','월','화','수','목','금','토'];
@@ -270,7 +274,7 @@ function show(id){
 function go(t){show('s-'+t);}
 function goS1(){show('s1');resetAll();}
 function resetAll(){
-  ['o-gu','o-gd','o-gi','o-dc','o-mc','s-gc','s-dc','s-mc'].forEach(id=>{
+  ['o-gu','o-gd','o-gi','o-dc','o-mc','s-gc','s-dc','s-mc','s-bs'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){el.textContent='-';el.classList.add('empty');}
   });
@@ -403,7 +407,7 @@ function submitOrder(){
 
 // ── 입고 제출 ─────────────────────────────────────────
 function submitStock(){
-  const gc=gv('s-gc'),dc=gv('s-dc'),mc=gv('s-mc');
+  const gc=gv('s-gc'),dc=gv('s-dc'),mc=gv('s-mc'),bs=gv('s-bs');
   const extras=getChips('chips-s');
   const dateStr=document.getElementById('date-s').textContent;
 
@@ -414,7 +418,7 @@ function submitStock(){
 
   showLoading(true);
 
-  const payload={type:'stock',branch:'wondang',gc:gc,dc:dc,mc:mc,extras:extras,date:dateStr};
+  const payload={type:'stock',branch:'wondang',gc:gc,dc:dc,mc:mc,bs:bs,extras:extras,date:dateStr};
 
   fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
   .then(()=>{
@@ -423,6 +427,7 @@ function submitStock(){
       `곱창  ${pad(gc,3)} 보\n`;
     if(dc>0)preview+=`대창  ${pad(dc,3)} 보\n`;
     if(mc>0)preview+=`막창  ${pad(mc,3)} 보\n`;
+    if(bs>0)preview+=`박수  ${pad(bs,3)} 개\n`;
     if(extras.length)preview+=`기타  ${extras.join(' / ')}\n`;
     preview+=`──────────────────\n입고 확인완료 ✅`;
     document.getElementById('done-title').textContent='원당점 입고 완료';
