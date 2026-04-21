@@ -416,7 +416,7 @@ function submitStock(){
   const extras=getChips('chips-s');
   const dateStr=document.getElementById('date-s').textContent;
 
-  if(gc===0&&dc===0&&mc===0&&extras.length===0){
+  if(gc===0&&dc===0&&mc===0&&bs===0&&extras.length===0){
     alert('입고 내역을 최소 하나 이상 입력해주세요.');
     return;
   }
