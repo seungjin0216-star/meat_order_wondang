@@ -189,7 +189,7 @@
       <div><div class="fc-label">곱창</div><div class="fc-hint">실제 수령한 수량</div></div>
       <div class="fc-right"><div class="fc-val empty" id="s-gc">-</div><div class="fc-unit">보</div></div>
     </div>
-    <div class="sec-title">대창 · 막창 · 박스</div>
+    <div class="sec-title">대창 · 막창 · 박수</div>
     <div class="field-card stock-card" onclick="openDial('s-dc','대창 입고량','s',false)">
       <div><div class="fc-label">대창</div></div>
       <div class="fc-right"><div class="fc-val empty" id="s-dc">-</div><div class="fc-unit">보</div></div>
@@ -198,8 +198,8 @@
       <div><div class="fc-label">막창</div></div>
       <div class="fc-right"><div class="fc-val empty" id="s-mc">-</div><div class="fc-unit">보</div></div>
     </div>
-    <div class="field-card stock-card" onclick="openDial('s-bs','박스 입고량','s',false)">
-      <div><div class="fc-label">박스</div><div class="fc-hint">실제 수령한 수량</div></div>
+    <div class="field-card stock-card" onclick="openDial('s-bs','박수 입고량','s',false)">
+      <div><div class="fc-label">박수</div><div class="fc-hint">실제 수령한 수량</div></div>
       <div class="fc-right"><div class="fc-val empty" id="s-bs">-</div><div class="fc-unit">개</div></div>
     </div>
     <div class="sec-title">기타 입고 (해당 항목만 체크)</div>
@@ -432,7 +432,7 @@ function submitStock(){
       `곱창  ${pad(gc,3)} 보\n`;
     if(dc>0)preview+=`대창  ${pad(dc,3)} 보\n`;
     if(mc>0)preview+=`막창  ${pad(mc,3)} 보\n`;
-    if(bs>0)preview+=`박스  ${pad(bs,3)} 개\n`;
+    if(bs>0)preview+=`박수  ${pad(bs,3)} 개\n`;
     if(extras.length)preview+=`기타  ${extras.join(' / ')}\n`;
     preview+=`──────────────────\n입고 확인완료 ✅`;
     document.getElementById('done-title').textContent='원당점 입고 완료';
