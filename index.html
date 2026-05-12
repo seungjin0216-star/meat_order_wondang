@@ -315,7 +315,7 @@ function renderDisp(){
 }
 function dk(k){
   if(k==='.'&&(!dDot||dBuf.includes('.')))return;
-  if(!dHas&&k==='.')dBuf='0';
+  if(!dHas&&k==='.'){dBuf='0.';}
   else if(dBuf==='0'&&k!=='.')dBuf=k;
   else dBuf+=k;
   if(dBuf.length>5)return;
