@@ -86,6 +86,10 @@
   .dk-ok{color:#fff;font-size:17px;font-weight:700;grid-column:1/-1;height:58px;border-radius:16px}
   .dk-ok-o{background:#7c3aed}
   .dk-ok-s{background:#059669}
+/* 막창 최대치 */
+.mc-max-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:12px;background:#fff;border:1.5px dashed #d1d1d6;font-size:14px;font-weight:600;color:#8e8e93;cursor:pointer;transition:all .15s;user-select:none;margin-bottom:10px;margin-top:-2px}
+.mc-max-btn:active{opacity:.7}
+.mc-max-on{background:#fee2e2;border:1.5px solid #dc2626;color:#991b1b}
 
   /* 완료 */
   .done-wrap{padding:48px 0 24px;text-align:center}
@@ -156,9 +160,12 @@
       <div><div class="fc-label">대창</div><div class="fc-hint">발주할 수량 직접 입력</div></div>
       <div class="fc-right"><div class="fc-val empty" id="o-dc">-</div><div class="fc-unit">보</div></div>
     </div>
-    <div class="field-card" onclick="openDial('o-mc','막창 발주량','o',false)">
+    <div class="field-card" onclick="openMcDial()">
       <div><div class="fc-label">막창</div><div class="fc-hint">발주할 수량 직접 입력</div></div>
-      <div class="fc-right"><div class="fc-val empty" id="o-mc">-</div><div class="fc-unit">보</div></div>
+      <div class="fc-right"><div class="fc-val empty" id="o-mc">-</div><div class="fc-unit" id="o-mc-unit">보</div></div>
+    </div>
+    <div class="mc-max-btn" id="mc-max-btn" onclick="toggleMcMax()">
+      📦 최대치 — 업체 가용물량 전량
     </div>
     <div class="sec-title">추가 주문 (해당 항목만 체크)</div>
     <div class="check-row" id="chips-o">
@@ -284,6 +291,13 @@ function resetAll(){
     if(el){el.textContent='-';el.classList.add('empty');}
   });
   document.querySelectorAll('.check-chip').forEach(c=>c.classList.remove('chip-on-o','chip-on-s'));
+  mcMaxActive=false;
+  const _btn=document.getElementById('mc-max-btn');
+  if(_btn)_btn.classList.remove('mc-max-on');
+  const _unit=document.getElementById('o-mc-unit');
+  if(_unit)_unit.textContent='보';
+  const _mcv=document.getElementById('o-mc');
+  if(_mcv){_mcv.style.fontSize='';_mcv.style.color='';}
 }
 
 // ── 체크칩 ────────────────────────────────────────────
@@ -295,6 +309,32 @@ function getChips(rowId){
 }
 
 // ── 다이얼 ────────────────────────────────────────────
+// ── 막창 최대치 ───────────────────────────────────────
+let mcMaxActive = false;
+
+function toggleMcMax(){
+  mcMaxActive = !mcMaxActive;
+  const btn  = document.getElementById('mc-max-btn');
+  const valEl = document.getElementById('o-mc');
+  const unit  = document.getElementById('o-mc-unit');
+  if(mcMaxActive){
+    btn.classList.add('mc-max-on');
+    valEl.textContent='최대';valEl.classList.remove('empty');
+    valEl.style.fontSize='18px';valEl.style.color='#dc2626';
+    unit.textContent='';
+  } else {
+    btn.classList.remove('mc-max-on');
+    valEl.textContent='-';valEl.classList.add('empty');
+    valEl.style.fontSize='';valEl.style.color='';
+    unit.textContent='보';
+  }
+}
+
+function openMcDial(){
+  if(mcMaxActive) return;
+  openDial('o-mc','막창 발주량','o',false);
+}
+
 let dTarget=null,dBuf='',dDot=true,dHas=false;
 function openDial(id,lbl,t,dot){
   dTarget=document.getElementById(id);dBuf='';dDot=dot;dHas=false;
@@ -360,7 +400,8 @@ function calcOrder(gu, gd, gi) {
 // ── 발주 제출 ─────────────────────────────────────────
 function submitOrder(){
   const gu=gv('o-gu'),gd=gv('o-gd'),gi=gv('o-gi');
-  const dc=gv('o-dc'),mc=gv('o-mc');
+  const dc=gv('o-dc');
+  const mc=mcMaxActive?0:gv('o-mc');
   const extras=getChips('chips-o');
   const dateStr=document.getElementById('date-o').textContent;
 
