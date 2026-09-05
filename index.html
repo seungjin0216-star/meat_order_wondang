@@ -264,7 +264,14 @@
 
 <script>
 // ── 설정: GAS 웹앱 URL ──────────────────────────────
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwhrUXW_5xkx28zoODZcVDkyQLuBoHZ58PMcvwield914wvH26NQyA2-4WDYIE1bXyjiA/exec';
+// ⚠️ 2026-09-05 — 원당 GAS 하나로 통합했습니다.
+//
+//    예전에는 이 화면(고기 발주·입고)과 food.html(식자재)이
+//    서로 다른 GAS 로 보내고 있었습니다. 백석은 이미 하나였는데 원당만 갈려 있었습니다.
+//    옛 주소: AKfycbwhrUXW_… (지금은 안 씁니다. 옛 코드가 남아 있어 지우지는 않았습니다)
+//
+//    새 GAS(원당_코드.gs)에 handleOrder · handleStock · handleFoodOrder 가 다 있습니다.
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzy3T6DOFaOY3u35XY57V2LJQP8mdMU4_NSc85qV8Ww2mr1owqGCGB7qGq8RsdYJYZYYg/exec';
 
 // ── 날짜 ──────────────────────────────────────────────
 const DAYS=['일','월','화','수','목','금','토'];
