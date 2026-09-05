@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>원당점 식자재 발주</title>
+<link rel="apple-touch-icon" href="food-icon-180.png">
+<link rel="icon" type="image/png" href="food-icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="식자재 발주">
+
+<!-- ⚠️ 캐시 금지 — 자세한 이유는 index.html 같은 자리 참고 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;overflow-x:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f5f5f7;min-height:100vh}
+.screen{display:none}.screen.active{display:block}
+.container{width:100%;max-width:500px;margin:0 auto;padding:20px 16px 100px}
+
+/* 헤더 */
+.brand{font-size:22px;font-weight:700;color:#1c1c1e;margin-bottom:4px}
+.brand-loc{display:inline-flex;align-items:center;gap:6px;background:#ede9fe;color:#5b21b6;font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;margin-bottom:20px}
+
+/* 날짜 필 */
+.date-pill{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;padding:12px 16px;margin-bottom:14px}
+.dp-label{font-size:12px;color:#8e8e93}
+.dp-val{font-size:16px;font-weight:700;color:#1c1c1e}
+.dp-note{font-size:12px;color:#8e8e93;margin-left:auto}
+
+/* 지연 배너 */
+.delay-banner{display:none;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#92400e;line-height:1.6}
+.delay-banner strong{font-weight:700}
+
+/* ── 업체 탭 행 ── */
+.sup-tab-row{display:flex;gap:8px;overflow-x:auto;padding:2px 0 14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.sup-tab-row::-webkit-scrollbar{display:none}
+.sup-tab{position:relative;display:inline-flex;align-items:center;gap:4px;padding:9px 14px;border-radius:22px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;white-space:nowrap;font-size:14px;font-weight:600;color:#636366;user-select:none;flex-shrink:0;transition:all .1s}
+.sup-tab:active{transform:scale(.93)}
+.sup-tab.active{background:#ede9fe;border-color:#7c3aed;color:#5b21b6}
+.sup-tab-badge{position:absolute;top:-7px;right:-7px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:none;align-items:center;justify-content:center;padding:0 4px;line-height:1;border:2px solid #f5f5f7}
+.sup-tab-badge.show{display:flex}
+.sup-tab.disabled{opacity:.45;cursor:not-allowed;border-style:dashed}
+.sup-tab.disabled:active{transform:none}
+.sup-tab.done{background:#d1fae5;border-color:#059669;color:#065f46}
+.sup-tab.done .ic-done{display:inline}
+
+/* ── 활성 업체 정보 바 ── */
+.sup-info-bar{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 12px}
+.sib-left{display:flex;align-items:center;gap:8px}
+.sib-title{font-size:15px;font-weight:700;color:#1c1c1e}
+.sib-phone{font-size:12px;color:#c7c7cc}
+.sib-all-btn{font-size:12px;font-weight:600;padding:5px 12px;border-radius:10px;border:1px solid #e0e0e0;background:#fff;color:#8e8e93;cursor:pointer;display:none}
+.sib-all-btn:active{background:#f0e6ff;color:#7c3aed;border-color:#c4b5fd}
+
+/* ── 아이템 섹션 ── */
+.sup-section{display:none}
+.sup-section.active{display:block}
+.item-grid{display:flex;flex-wrap:wrap;gap:8px}
+
+/* 아이템 칩 */
+.item-chip{display:flex;align-items:center;gap:5px;padding:9px 13px;border-radius:22px;border:1.5px solid #e0e0e0;background:#fff;cursor:pointer;transition:all .1s;user-select:none}
+.item-chip:active{transform:scale(.93)}
+.ic-name{font-size:14px;font-weight:600;color:#636366}
+.ic-qty{font-size:12px;font-weight:700;background:#7c3aed;color:#fff;padding:2px 7px;border-radius:10px;display:none}
+.item-chip.on{background:#f3e8ff;border-color:#7c3aed}
+.item-chip.on .ic-name{color:#5b21b6}
+.item-chip.on .ic-qty{display:inline-block}
+
+/* 바텀 바 */
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e0e0e0;padding:12px 16px 28px;z-index:100}
+.bb-inner{max-width:500px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.bb-info{flex:1;min-width:0}
+.bb-count{font-size:15px;font-weight:700;color:#1c1c1e}
+.bb-sub{font-size:12px;color:#8e8e93;margin-top:2px}
+.bb-btn{padding:13px 24px;border-radius:14px;background:#7c3aed;color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.bb-btn:active{opacity:.8}
+.bb-btn:disabled{background:#c7c7cc;cursor:not-allowed}
+
+/* ── 스텝퍼 오버레이 ── */
+.stepper-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;align-items:flex-end;justify-content:center}
+.stepper-ov.show{display:flex}
+.stp-sheet{background:#fff;border-radius:24px 24px 0 0;padding:20px 16px 36px;width:100%;max-width:500px}
+.ds-handle{width:40px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 16px}
+.ds-item{font-size:13px;font-weight:700;color:#8e8e93;text-align:center;margin-bottom:4px;letter-spacing:.04em}
+.stp-display{display:flex;align-items:center;justify-content:center;gap:28px;padding:18px 0 14px}
+.stp-btn{width:68px;height:68px;border-radius:50%;border:none;font-size:34px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;transition:all .08s}
+.stp-minus{background:#f5f5f7;color:#636366}
+.stp-plus{background:#ede9fe;color:#7c3aed}
+.stp-btn:active{opacity:.7;transform:scale(.9)}
+.stp-btn.disabled{opacity:.25;pointer-events:none}
+.stp-num{font-size:68px;font-weight:700;color:#1c1c1e;min-width:90px;text-align:center;line-height:1}
+.stp-num.zero{color:#c7c7cc}
+.ds-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.ds-cancel{padding:16px;border-radius:14px;background:#f5f5f7;border:1.5px solid #e0e0e0;font-size:16px;font-weight:700;color:#636366;cursor:pointer}
+.ds-confirm{padding:16px;border-radius:14px;background:#7c3aed;border:none;font-size:16px;font-weight:700;color:#fff;cursor:pointer}
+.ds-cancel:active{opacity:.7}
+.ds-confirm:active{opacity:.8}
+
+/* ── 미리보기 화면 ── */
+.top-bar{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.back-btn{width:40px;height:40px;border-radius:12px;background:#fff;border:1.5px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:20px;color:#636366;cursor:pointer;flex-shrink:0}
+.page-title{font-size:18px;font-weight:700;color:#1c1c1e}
+.page-sub{font-size:13px;color:#8e8e93;margin-top:2px}
+.preview-delay-notice{background:#fef3c7;border:1.5px solid #f59e0b;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:#92400e;line-height:1.6;display:none}
+.preview-card{background:#fff;border-radius:16px;border:1.5px solid #e0e0e0;margin-bottom:12px;overflow:hidden}
+.pc-header{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid #f0f0f0}
+.pc-supplier{font-size:15px;font-weight:700;color:#1c1c1e}
+.pc-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px}
+.badge-sms{background:#d1fae5;color:#065f46}
+.badge-lms{background:#fef3c7;color:#92400e}
+.badge-kakao{background:#ede9fe;color:#5b21b6}
+.pc-msg{padding:14px 16px;font-size:13px;color:#1c1c1e;line-height:1.9;font-family:'Courier New',monospace;white-space:pre-wrap;background:#f9f9f9}
+.pc-footer{padding:9px 16px;display:flex;align-items:center;justify-content:space-between}
+.pc-len{font-size:11px;color:#8e8e93}
+.pc-to{font-size:11px;color:#c7c7cc}
+.submit-btn{width:100%;padding:18px;border-radius:16px;font-size:17px;font-weight:700;border:none;cursor:pointer;margin-top:8px;background:#7c3aed;color:#fff}
+.submit-btn:active{opacity:.8}
+
+/* ── 완료 화면 ── */
+.done-wrap{padding:52px 0 24px;text-align:center}
+.done-icon{font-size:64px;margin-bottom:16px}
+.done-title{font-size:22px;font-weight:700;color:#1c1c1e;margin-bottom:8px}
+.done-sub{font-size:14px;color:#636366;line-height:1.8;margin-bottom:24px;white-space:pre-line}
+.done-result{text-align:left;background:#f5f5f7;border-radius:14px;padding:16px}
+.dr-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #e0e0e0;font-size:13px}
+.dr-row:last-child{border:none}
+.dr-supplier{font-weight:600;color:#1c1c1e}
+.dr-status{font-size:12px;font-weight:600;padding:3px 8px;border-radius:8px}
+.st-sms{background:#d1fae5;color:#065f46}
+.st-lms{background:#fef3c7;color:#92400e}
+.st-kakao{background:#ede9fe;color:#5b21b6}
+.st-dev{background:#e8e8ed;color:#636366}
+.reset-btn{margin-top:18px;width:100%;padding:16px;border-radius:14px;background:#fff;border:1.5px solid #e0e0e0;font-size:16px;color:#636366;cursor:pointer;font-weight:600}
+
+/* 로딩 */
+.loading-ov{display:none;position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-ov.show{display:flex}
+.spinner{width:44px;height:44px;border:4px solid #e0e0e0;border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite}
+.loading-text{font-size:15px;color:#636366}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── 최신화 버튼 (우측 상단 고정) ──────────────────────────
+   ⚠️ 2026-08-22 — 처음엔 화면 오른쪽 아래에 아주 작게 넣었더니
+      손가락으로 눌리지가 않았습니다. 위로 올리고 크게 키웠습니다.
+      버튼은 "보이는 것"보다 "눌리는 것"이 먼저입니다. */
+.refresh-btn{position:fixed;top:calc(10px + env(safe-area-inset-top));right:12px;z-index:9999;
+  display:flex;align-items:center;gap:5px;padding:9px 13px;border-radius:20px;
+  background:rgba(255,255,255,.94);border:1.5px solid #e0e0e0;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:pointer;user-select:none;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.refresh-btn:active{background:#f0f0f0;transform:scale(.94)}
+.rb-icon{font-size:14px;line-height:1}
+.rb-text{font-size:12px;font-weight:700;color:#636366;line-height:1}
+.rb-ver{font-size:9px;color:#c7c7cc;line-height:1;margin-top:2px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════ -->
+<!--  S1: 아이템 선택                    -->
+<!-- ═══════════════════════════════════ -->
+<div class="screen active" id="s-main">
+  <div class="container">
+    <div class="brand">🥬 식자재 발주</div>
+    <div class="brand-loc">🟣 원당본점</div>
+    <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;background:#faf5ff;color:#5b21b6;font-size:13px;font-weight:600;padding:6px 14px;border-radius:20px;border:1.5px solid #ddd6fe;text-decoration:none;margin-bottom:16px;">🍖 고기 발주&amp;입고</a>
+
+    <div class="date-pill">
+      <span class="dp-label">발주일</span>
+      <span class="dp-val" id="date-main"></span>
+      <span class="dp-note" id="date-note"></span>
+    </div>
+
+    <!-- 월/화 지연 배너 -->
+    <!-- ⚠️ 원당은 연중무휴라 「화요일 지연 발송」 안내가 필요 없어 들어냈습니다.
+         백석에는 그대로 있습니다 (화요일 휴무). -->
+
+
+    <!-- 업체 탭 (가로 스크롤) -->
+    <div class="sup-tab-row" id="sup-tab-row"></div>
+
+    <!-- 활성 업체 정보 바 -->
+    <div class="sup-info-bar">
+      <div class="sib-left">
+        <span class="sib-title" id="sib-title"></span>
+        <span class="sib-phone" id="sib-phone"></span>
+      </div>
+      <button class="sib-all-btn" id="sib-all-btn" onclick="toggleAllActive()">전체 선택</button>
+    </div>
+
+    <!-- 업체별 아이템 섹션 (하나만 표시) -->
+    <div id="all-sections"></div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="bb-inner">
+      <div class="bb-info">
+        <div class="bb-count" id="bb-count">선택된 항목 없음</div>
+        <div class="bb-sub" id="bb-sub">업체 탭을 눌러 품목 선택</div>
+      </div>
+      <button class="bb-btn" id="bb-btn" onclick="goPreview()" disabled>미리보기 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!--  S2: 미리보기                        -->
+<!-- ═══════════════════════════════════ -->
+<div class="screen" id="s-preview">
+  <div class="container">
+    <div class="top-bar">
+      <div class="back-btn" onclick="showScreen('s-main')">←</div>
+      <div>
+        <div class="page-title">📤 발주 미리보기</div>
+        <div class="page-sub">🟣 원당본점 · 발송 전 확인</div>
+      </div>
+    </div>
+    <!-- 원당: 지연 발송 없음 -->
+
+    <div id="preview-cards"></div>
+    <button class="submit-btn" id="submit-btn" onclick="submitAll()">📨 전체 발송하기</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!--  S3: 완료                           -->
+<!-- ═══════════════════════════════════ -->
+<div class="screen" id="s-done">
+  <div class="container">
+    <div class="done-wrap">
+      <div class="done-icon" id="done-icon">✅</div>
+      <div class="done-title" id="done-title">발주 완료!</div>
+      <div class="done-sub" id="done-sub"></div>
+      <div class="done-result" id="done-result"></div>
+      <button class="reset-btn" onclick="reset()">🔄 새 발주 시작</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!--  스텝퍼 오버레이 (+/-)              -->
+<!-- ═══════════════════════════════════ -->
+<div class="stepper-ov" id="stepper-ov">
+  <div class="stp-sheet">
+    <div class="ds-handle"></div>
+    <div class="ds-item" id="stp-item-name">—</div>
+    <div class="stp-display">
+      <button class="stp-btn stp-minus disabled" id="stp-minus" onclick="stpChange(-1)">−</button>
+      <span class="stp-num zero" id="stp-num">0</span>
+      <button class="stp-btn stp-plus" onclick="stpChange(1)">+</button>
+    </div>
+    <div class="ds-actions">
+      <button class="ds-cancel" onclick="stpCancel()">취소</button>
+      <button class="ds-confirm" onclick="stpConfirm()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 로딩 -->
+<div class="loading-ov" id="loading-ov">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">발송 중...</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// 설정
+// ═══════════════════════════════════════════════════
+const CFG = {
+  // ⚠️ 원당 GAS 를 배포한 뒤 그 주소를 여기에 넣으세요.
+  //    비워두면 문자가 안 나가고 화면에만 표시됩니다.
+  GAS_URL: '',
+  // ⚠️ 임시 — 백석 번호입니다. 원당 관리자(아버지) 번호로 바꿔야 합니다.
+  //    솔라피에 「개인 → 개인」 위임 등록을 마친 뒤 교체하세요.
+  //    필요 서류: 통신서비스이용증명원 · 위임장 · 신분증 사본
+  SENDER: '01041216995',
+  SMS_MAX_BYTES: 90,
+  LMS_MAX_BYTES: 2000,
+  PHONES: {
+    '미락'    : '01089421859',
+    '콩나물'  : '01062333466',
+    '원당'    : '01041216995',
+    '네이버'  : '01041216995',
+    '사장님'  : '01053226995',
+    '배달관련': '01041216995',
+    '주류'    : '01056079640',
+    '음료수'  : '01037982411',
+  },
+  // 동일 내용을 추가로 받을 번호 (CC)
+  CC: {
+    '사장님': ['01041216995'],
+  }
+};
+
+// ═══════════════════════════════════════════════════
+// 발주표 데이터
+// qty:true  → 스텝퍼(+/-) 수량 입력
+// qty:false → 탭으로 토글 선택
+// ═══════════════════════════════════════════════════
+const SUPS = [
+  // ⚠️ 원당은 셋뿐입니다 (사장님 지정 2026-09-04)
+  //    백석에 있는 미락·원당·네이버·사장님·배달관련은 원당 발주앱에 안 넣습니다.
+  //    나머지는 영수증분석기로 넣습니다.
+  { key:'콩나물',   emoji:'🌱', qty:true,  items:['콩나물'] },
+  { key:'주류',     emoji:'🍶', qty:true,  items:['참이슬후래쉬','처음처럼','새로','진로','참이슬빨뚜','카스','테라','켈리','일품진로','복분자','청하','매화수'] },
+  // ⚠️ 원당은 웰치스포도를 안 씁니다. 단가는 백석과 같습니다.
+  { key:'음료수',   emoji:'🥤', qty:true,  items:['콜라','사이다','제로콜라','파인애플'] },
+];
+
+// ═══════════════════════════════════════════════════
+// 상태
+// ═══════════════════════════════════════════════════
+const ST = {};        // ST['미락:부추'] = { on: bool, qty: string }
+let activeSup = SUPS[0].key;
+
+// 발주 완료 추적 (세션 내 2차 발주 표시용)
+const completedSups = new Set();   // 이미 발주 완료된 업체 키
+
+// 스텝퍼 상태
+let sKey       = null;
+let sQty       = 0;
+let sPrevState = null;  // 열기 전 상태 저장 (취소 시 복원)
+
+// ═══════════════════════════════════════════════════
+// 초기화
+// ═══════════════════════════════════════════════════
+function init() {
+  initDate();
+
+  const tabRow  = document.getElementById('sup-tab-row');
+  const allSecs = document.getElementById('all-sections');
+
+  SUPS.forEach((sup, idx) => {
+    // 상태 초기화
+    sup.items.forEach(item => {
+      ST[sup.key + ':' + item] = { on: false, qty: '' };
+    });
+
+    // ── 탭 생성 ──
+    const tab = document.createElement('div');
+    const isLocked = sup.key === '주류' && !isJuryuDay();
+    tab.className = 'sup-tab' + (idx === 0 ? ' active' : '') + (isLocked ? ' disabled' : '');
+    tab.id = 'stab-' + sup.key;  // showDone에서 완료 표시용
+    tab.innerHTML =
+      `${sup.emoji} ${sup.key}` +
+      (isLocked ? ' 🔒' : '') +
+      `<span class="sup-tab-badge" id="tbadge-${sup.key}"></span>`;
+    tab.addEventListener('click', () => switchSup(sup.key));
+    tabRow.appendChild(tab);
+
+    // ── 섹션 + 그리드 생성 ──
+    const section = document.createElement('div');
+    section.className = 'sup-section' + (idx === 0 ? ' active' : '');
+    section.id = 'section-' + sup.key;
+
+    const grid = document.createElement('div');
+    grid.className = 'item-grid';
+    grid.id = 'grid-' + sup.key;
+
+    sup.items.forEach(item => {
+      const key  = sup.key + ':' + item;
+      const chip = document.createElement('div');
+      chip.className = 'item-chip';
+      chip.id = 'chip-' + key;
+      chip.innerHTML =
+        `<span class="ic-name">${item}</span>` +
+        `<span class="ic-qty" id="qty-${key}"></span>`;
+
+      if (sup.qty) {
+        chip.addEventListener('click', () => openStepper(key, item));
+      } else {
+        chip.addEventListener('click', () => toggleChip(key, sup.key));
+      }
+      grid.appendChild(chip);
+    });
+
+    section.appendChild(grid);
+    allSecs.appendChild(section);
+  });
+
+  updateInfoBar(activeSup);
+  updateBar();
+}
+
+// ═══════════════════════════════════════════════════
+// 업체 탭 전환
+// ═══════════════════════════════════════════════════
+// ⚠️ 원당은 주류 발주일이 따로 없습니다 (사장님 확인 2026-09-04).
+//    백석은 수·목·일만 되지만 원당은 아무 날이나 됩니다.
+function isJuryuDay() {
+  return true;
+}
+
+function switchSup(key) {
+  if (key === '주류' && !isJuryuDay()) {
+    alert('🍶 주류는 수·목·일에만 발주 가능합니다.\n오늘은 발주할 수 없는 날입니다.');
+    return;
+  }
+  document.getElementById('stab-'    + activeSup).classList.remove('active');
+  document.getElementById('section-' + activeSup).classList.remove('active');
+  activeSup = key;
+  document.getElementById('stab-'    + key).classList.add('active');
+  document.getElementById('section-' + key).classList.add('active');
+  updateInfoBar(key);
+}
+
+// ═══════════════════════════════════════════════════
+// 정보 바 업데이트
+// ═══════════════════════════════════════════════════
+function updateInfoBar(key) {
+  const sup = SUPS.find(s => s.key === key);
+  document.getElementById('sib-title').textContent = sup.emoji + ' ' + sup.key;
+  document.getElementById('sib-phone').textContent = CFG.PHONES[key] || '';
+
+  const allBtn = document.getElementById('sib-all-btn');
+  if (!sup.qty) {
+    allBtn.style.display = 'block';
+    const allOn = sup.items.every(item => ST[sup.key + ':' + item].on);
+    allBtn.textContent = allOn ? '전체 해제' : '전체 선택';
+  } else {
+    allBtn.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// 전체 선택/해제 (현재 활성 업체, qty:false 전용)
+// ═══════════════════════════════════════════════════
+function toggleAllActive() {
+  const sup = SUPS.find(s => s.key === activeSup);
+  if (!sup || sup.qty) return;
+  const allOn = sup.items.every(item => ST[sup.key + ':' + item].on);
+  sup.items.forEach(item => {
+    const key = sup.key + ':' + item;
+    ST[key].on  = !allOn;
+    if (allOn) ST[key].qty = '';
+    updateChip(key);
+  });
+  updateBadge(sup.key);
+  updateBar();
+  document.getElementById('sib-all-btn').textContent = allOn ? '전체 선택' : '전체 해제';
+}
+
+// ═══════════════════════════════════════════════════
+// 토글 칩 (qty:false 업체)
+// ═══════════════════════════════════════════════════
+function toggleChip(key, supKey) {
+  ST[key].on  = !ST[key].on;
+  ST[key].qty = '';
+  updateChip(key);
+  updateBadge(supKey);
+  updateBar();
+  // 전체 버튼 텍스트 동기화
+  if (supKey === activeSup && !SUPS.find(s => s.key === supKey).qty) {
+    const sup   = SUPS.find(s => s.key === supKey);
+    const allOn = sup.items.every(item => ST[supKey + ':' + item].on);
+    document.getElementById('sib-all-btn').textContent = allOn ? '전체 해제' : '전체 선택';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// 스텝퍼 (+/-) 수량 입력
+// ═══════════════════════════════════════════════════
+function openStepper(key, itemName) {
+  sKey       = key;
+  sPrevState = { ...ST[key] };         // 취소 시 복원용
+  sQty       = parseInt(ST[key].qty) || 0;
+  document.getElementById('stp-item-name').textContent = itemName;
+  renderStepper();
+  document.getElementById('stepper-ov').classList.add('show');
+}
+
+function renderStepper() {
+  const numEl   = document.getElementById('stp-num');
+  const minusEl = document.getElementById('stp-minus');
+  numEl.textContent = sQty;
+  numEl.classList.toggle('zero', sQty === 0);
+  minusEl.classList.toggle('disabled', sQty === 0);
+}
+
+function stpChange(delta) {
+  sQty = Math.max(0, sQty + delta);
+  renderStepper();
+}
+
+// 취소 → 열기 전 상태로 복원
+function stpCancel() {
+  if (sKey && sPrevState) {
+    const supKey = sKey.split(':')[0];
+    ST[sKey] = { ...sPrevState };
+    updateChip(sKey);
+    updateBadge(supKey);
+    updateBar();
+  }
+  closeStepper();
+}
+
+// 확인 → 수량 저장 (0이면 선택 해제)
+function stpConfirm() {
+  if (sKey) {
+    const supKey = sKey.split(':')[0];
+    ST[sKey].on  = sQty > 0;
+    ST[sKey].qty = sQty > 0 ? String(sQty) : '';
+    updateChip(sKey);
+    updateBadge(supKey);
+    updateBar();
+  }
+  closeStepper();
+}
+
+function closeStepper() {
+  document.getElementById('stepper-ov').classList.remove('show');
+  sKey = null; sQty = 0; sPrevState = null;
+}
+
+// 배경 탭 → 취소
+document.getElementById('stepper-ov').addEventListener('click', e => {
+  if (e.target === document.getElementById('stepper-ov')) stpCancel();
+});
+
+// ═══════════════════════════════════════════════════
+// 칩 / 배지 / 바텀바 업데이트
+// ═══════════════════════════════════════════════════
+function updateChip(key) {
+  const s    = ST[key];
+  const chip = document.getElementById('chip-' + key);
+  const qEl  = document.getElementById('qty-'  + key);
+  chip.classList.toggle('on', s.on);
+  if (s.on && s.qty) {
+    qEl.textContent = s.qty;
+    qEl.style.display = 'inline-block';
+  } else {
+    qEl.style.display = 'none';
+  }
+}
+
+function updateBadge(supKey) {
+  const sup = SUPS.find(s => s.key === supKey);
+  const cnt = sup.items.filter(i => ST[supKey + ':' + i].on).length;
+  const el  = document.getElementById('tbadge-' + supKey);
+  el.textContent = cnt;
+  el.classList.toggle('show', cnt > 0);
+}
+
+function updateBar() {
+  let total = 0;
+  const sups = new Set();
+  SUPS.forEach(sup => sup.items.forEach(item => {
+    if (ST[sup.key + ':' + item].on) { total++; sups.add(sup.key); }
+  }));
+  const btn = document.getElementById('bb-btn');
+  if (total === 0) {
+    document.getElementById('bb-count').textContent = '선택된 항목 없음';
+    document.getElementById('bb-sub').textContent   = '업체 탭을 눌러 품목 선택';
+    btn.disabled = true;
+  } else {
+    document.getElementById('bb-count').textContent = `${total}개 항목 선택됨`;
+    document.getElementById('bb-sub').textContent   = `${sups.size}개 업체 발주 예정`;
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// 영업일 날짜 & 지연 감지
+// 오전 8시 이전 = 전날 영업일 (자정 이후 새벽 발주 보정)
+// ═══════════════════════════════════════════════════
+function getBusinessDate() {
+  const now = new Date();
+  if (now.getHours() < 8) {
+    const prev = new Date(now);
+    prev.setDate(prev.getDate() - 1);
+    return prev;
+  }
+  return now;
+}
+
+// 영업일 기준으로 몇 시인지 — 새벽 0시 35분은 "전날 24시 35분" 으로 센다.
+//
+// ⚠️ 2026-08-18 사고
+//    예전에는 날짜만 영업일로 보고(getBusinessDate) 시각은 실제 시계를 그대로 썼다.
+//    그래서 화요일 00:35 에 넣은 월요일 영업분 발주가 "월요일 0시" 로 판단되어
+//    아래 14시 조건에 걸리지 않았고, 화요일 저녁에 나가야 할 발주가 즉시 나가버렸다.
+//    날짜와 시각의 기준이 다르면 이런 틈이 생긴다. 반드시 같이 옮겨야 한다.
+function getBusinessHour() {
+  const h = new Date().getHours();
+  return h < 8 ? h + 24 : h;   // getBusinessDate() 의 8시 경계와 같은 기준
+}
+
+function isDelayed() {
+  // ⚠️ 원당은 연중무휴입니다. 화요일에도 영업하므로 미룰 이유가 없습니다.
+  //    백석은 화요일 휴무라 월·화 발주를 화요일 20:30 으로 미룹니다.
+  //    두 지점의 차이는 여기 하나뿐입니다.
+  return false;
+}
+
+function initDate() {
+  const biz = getBusinessDate();
+  const now = new Date();
+  const DAY = ['일','월','화','수','목','금','토'];
+  const m = biz.getMonth()+1, d = biz.getDate(), w = DAY[biz.getDay()];
+  const isNightShift = now.getHours() < 8;
+
+  document.getElementById('date-main').textContent =
+    `${m}월 ${d}일 (${w})${isNightShift ? ' 🌙' : ''}`;
+
+  if (isDelayed()) {
+    /* 원당은 지연이 없어 배너를 없앴습니다 */
+    const daysToWed = biz.getDay() === 1 ? 2 : 1;
+    const wed = new Date(biz); wed.setDate(d + daysToWed);
+    document.getElementById('date-note').textContent =
+      `납품: ${wed.getMonth()+1}/${wed.getDate()}(수)`;
+  } else {
+    const tmr = new Date(biz); tmr.setDate(d + 1);
+    document.getElementById('date-note').textContent =
+      `납품: ${tmr.getMonth()+1}/${tmr.getDate()}(${DAY[tmr.getDay()]})`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// 메시지 생성
+// ═══════════════════════════════════════════════════
+function buildMsgs() {
+  const biz = getBusinessDate();   // 영업일 기준 날짜
+  const DAY = ['일','월','화','수','목','금','토'];
+  const delayed = isDelayed();
+
+  let delivDate;
+  if (delayed) {
+    const toWed = biz.getDay() === 1 ? 2 : 1;
+    delivDate = new Date(biz); delivDate.setDate(biz.getDate() + toWed);
+  } else {
+    delivDate = new Date(biz); delivDate.setDate(biz.getDate() + 1);
+  }
+  const dateStr = `${delivDate.getMonth()+1}/${delivDate.getDate()}(${DAY[delivDate.getDay()]})`;
+
+  return SUPS.flatMap(sup => {
+    const sel = sup.items.filter(item => ST[sup.key + ':' + item].on);
+    if (!sel.length) return [];
+
+    const itemsWithQty = sel.map(item => {
+      const qty = ST[sup.key + ':' + item].qty;
+      return qty ? `${item} ${qty}` : item;
+    });
+    const itemStr = itemsWithQty.join(', ');
+
+    const body    = `[원당점 발주 ${dateStr}]\n${itemStr}`;
+    const bytes   = byteLen(body);
+    const channel = bytes <= CFG.SMS_MAX_BYTES ? 'SMS'
+                  : bytes <= CFG.LMS_MAX_BYTES ? 'LMS' : 'KAKAO';
+
+    const mainMsg = { supplier:sup.key, emoji:sup.emoji,
+               phone: CFG.PHONES[sup.key] || '',
+               body, bytes, channel, items:itemsWithQty, delayed };
+    const ccMsgs = (CFG.CC[sup.key] || []).map(ccPhone => ({
+      ...mainMsg, phone: ccPhone, channel: byteLen(body) <= CFG.SMS_MAX_BYTES ? 'SMS' : 'LMS'
+    }));
+    return [mainMsg, ...ccMsgs];
+  });
+}
+
+function byteLen(str) {
+  let n = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    n += c <= 0x7F ? 1 : c <= 0x7FF ? 2 : 3;
+  }
+  return n;
+}
+
+// ═══════════════════════════════════════════════════
+// 미리보기
+// ═══════════════════════════════════════════════════
+function goPreview() {
+  const msgs = buildMsgs();
+  if (!msgs.length) return;
+
+  const delayed = msgs.some(m => m.delayed);
+  /* 원당: 지연 안내 없음 */
+  document.getElementById('submit-btn').textContent = delayed
+    ? '📋 발주 저장' : '📨 전체 발송하기';
+
+  const cards = document.getElementById('preview-cards');
+  cards.innerHTML = '';
+  msgs.forEach(m => {
+    const bClass = m.channel==='SMS' ? 'badge-sms' : m.channel==='LMS' ? 'badge-lms' : 'badge-kakao';
+    const bLabel = m.channel==='SMS' ? '📱 SMS (9원)' : m.channel==='LMS' ? '📄 LMS (27원)' : '💬 카카오';
+    const card = document.createElement('div');
+    card.className = 'preview-card';
+    card.innerHTML = `
+      <div class="pc-header">
+        <span class="pc-supplier">${m.emoji} ${m.supplier}</span>
+        <span class="pc-badge ${bClass}">${bLabel}</span>
+      </div>
+      <div class="pc-msg">${esc(m.body)}</div>
+      <div class="pc-footer">
+        <span class="pc-len">${m.bytes}B · ${m.items.length}개</span>
+        <span class="pc-to">${m.phone}</span>
+      </div>`;
+    cards.appendChild(card);
+  });
+
+  showScreen('s-preview');
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════════════
+// 발송
+// ═══════════════════════════════════════════════════
+async function submitAll() {
+  const msgs    = buildMsgs();
+  const delayed = msgs.some(m => m.delayed);
+
+  if (!CFG.GAS_URL) { showDone(msgs, true); return; }
+
+  showLoading(delayed ? '발주 저장 중...' : '문자 발송 중...');
+  try {
+    const res = await fetch(CFG.GAS_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({
+        type: 'food_order',
+        branch: 'baekseok',
+        delay_to_tuesday: delayed,
+        messages: msgs.map(m => ({
+          supplier: m.supplier,
+          phone: m.phone,
+          body: m.body,
+          channel: m.channel,
+          items: m.items
+        }))
+      })
+    });
+    const data = await res.json();
+    hideLoading();
+    showDone(msgs, false, data);
+  } catch(e) {
+    hideLoading();
+    alert('오류: ' + e.message);
+  }
+}
+
+function showDone(msgs, dev) {
+  const delayed = msgs.some(m => m.delayed);
+
+  // 발주 완료된 업체 추적 → 메인 화면 탭에 표시
+  if (!dev) {
+    msgs.forEach(m => completedSups.add(m.supplier));
+    SUPS.forEach(sup => {
+      const tab = document.getElementById('stab-' + sup.key);
+      if (tab) tab.classList.toggle('done', completedSups.has(sup.key));
+    });
+  }
+
+  document.getElementById('done-icon').textContent  = dev ? '📋' : (delayed ? '🕗' : '✅');
+  document.getElementById('done-title').textContent = dev ? '미리보기 완료' : (delayed ? '저장 완료!' : '발송 완료!');
+  document.getElementById('done-sub').textContent   = dev
+    ? '⚠️ 개발 모드 (GAS URL 미설정)\n실제 발송은 GAS URL 설정 후 가능합니다'
+    : delayed
+      ? `${msgs.length}개 업체로 자동 발송됩니다`
+      : `${msgs.length}개 업체에 발주 완료`;
+
+  document.getElementById('done-result').innerHTML = msgs.map(m => {
+    const cls = dev ? 'st-dev' : (m.channel==='SMS'?'st-sms':m.channel==='LMS'?'st-lms':'st-kakao');
+    const lbl = dev ? '미리보기' : (delayed ? '예약됨' : m.channel);
+    return `<div class="dr-row">
+      <span class="dr-supplier">${m.emoji} ${m.supplier}</span>
+      <span class="dr-status ${cls}">${lbl}</span>
+    </div>`;
+  }).join('');
+
+  showScreen('s-done');
+}
+
+// ═══════════════════════════════════════════════════
+// 유틸
+// ═══════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function showLoading(t) {
+  document.getElementById('loading-text').textContent = t;
+  document.getElementById('loading-ov').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loading-ov').classList.remove('show');
+}
+
+function reset() {
+  SUPS.forEach(sup => {
+    sup.items.forEach(item => {
+      const key = sup.key + ':' + item;
+      ST[key] = { on: false, qty: '' };
+      updateChip(key);
+    });
+    updateBadge(sup.key);
+  });
+  updateBar();
+  switchSup(SUPS[0].key);
+  showScreen('s-main');
+}
+
+// ═══════════════════════════════════════════════════
+// 시작
+// ═══════════════════════════════════════════════════
+init();
+</script>
+
+
+<!-- 최신화 버튼 — 누르면 캐시를 비우고 새로 받습니다.
+     화면 파일을 고칠 때마다 아래 APP_VERSION 도 같이 올릴 것. -->
+<div class="refresh-btn" id="refresh-btn">
+  <span class="rb-icon">🔄</span>
+  <span><span class="rb-text">최신화</span><br><span class="rb-ver">v2026-08-22a</span></span>
+</div>
+<script>
+const APP_VERSION = '2026-08-22a';
+document.getElementById('refresh-btn').addEventListener('click', function () {
+  if (!confirm('최신 화면으로 다시 받아올까요?\n지금 버전 v' + APP_VERSION)) return;
+  // 주소 뒤에 시각을 붙이면 폰이 저장해둔 화면을 못 쓰고 새로 받는다
+  location.replace(location.pathname + '?t=' + Date.now());
+});
+</script>
+</body>
+</html>
