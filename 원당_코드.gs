@@ -103,22 +103,31 @@ const CONFIG = {
   SENDER_NUMBER     : '01041216995',
   VENDOR_NUMBER     : '01041216995',
   OWNER_NUMBER      : '01053226995',
-  BAESEOK_ADMIN     : '01041216995',
+  WONDANG_ADMIN     : '01041216995',   // 발주·입고 알림을 받는 사람
 
+  // ⚠️ 원당 카카오 채널·템플릿 (2026-09-05 옛 원당 GAS 에서 가져옴)
+  //    알림톡 본문의 「원당점」은 카카오에 등록된 템플릿에 박혀 있어
+  //    코드로 바꿀 수 없습니다. 반드시 원당 템플릿을 써야 합니다.
+  //    백석 것을 쓰면 업체에 「백석점」으로 문자가 나갑니다.
   KAKAO: {
-    PFID : 'KA01PF260426075804420VO8o8M5w9IQ',
+    PFID : 'KA01PF260410091528440VCs2PgqNVQa',
     TEMPLATES: {
-      ORDER_REMINDER : 'KA01TP260426075940443LF7oyhJVJnq',
-      ORDER_REPORT   : 'KA01TP260426080250645hFylvbOFfd2',
-      STOCK_REPORT   : 'KA01TP260426080045813YtTbrFxp0yz',
-      VENDOR_ORDER   : 'KA01TP260426080129891HOhFBeJ7ijV',
+      ORDER_REMINDER : 'KA01TP2604140941234231mKHLhq3ojZ', // 발주입력알림
+      ORDER_REPORT   : 'KA01TP260414093815264oS5sFDXGp72', // 발주완료보고
+      STOCK_REPORT   : 'KA01TP260414093919019ok4sWYRp4Rn', // 입고확인보고
+      VENDOR_ORDER   : 'KA01TP260414093852592bNn53l4TM1Q', // 업체발주알림
     }
   },
 
-  BAESEOK: {
-    TARGET_BY_DAY : [3, 3, 3, 3, 4, 4, 4],
-    MIN_ORDER : 1,
-    MAX_ORDER : 2,
+  // ⚠️ 원당 목표재고 — 백석과 완전히 다릅니다 (2026-09-05 옛 원당 GAS 에서 가져옴)
+  //       백석  [3,3,3,3,4,4,4]  최소1 최대2
+  //       원당  [8,8,8,10,11,13,13]  최소2 최대4
+  //    복제하면서 이 값을 안 바꿔서 원당 발주가 백석 양으로 나갈 뻔했습니다.
+  //    요일 순서는 일·월·화·수·목·금·토 입니다.
+  STOCK_RULE: {
+    TARGET_BY_DAY : [8, 8, 8, 10, 11, 13, 13],
+    MIN_ORDER : 2,
+    MAX_ORDER : 4,
   },
 
   // ── [v2.0 추가] 식자재 발주 설정 ─────────────────────────
@@ -168,7 +177,7 @@ function alertFailure(제목, 내용, 사유) {
   try {
     MailApp.sendEmail(
       CONFIG.OWNER_EMAIL,
-      '🚨 [백석점] ' + 제목,
+      '🚨 [' + BRANCH + '] ' + 제목,
       '발송에 실패했습니다.\n' +
       '━━━━━━━━━━━━━━━━━━━━\n' +
       '내용: ' + 내용 + '\n' +
@@ -317,7 +326,7 @@ function shouldHoldUntilTuesday(now) {
 function doGet(e) {
   return HtmlService
     .createHtmlOutputFromFile('index')
-    .setTitle('백석점 발주·입고')
+    .setTitle(BRANCH + ' 발주·입고')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -375,7 +384,7 @@ function handleOrder(data) {
   const target       = getTargetWithHoliday(now, dayOfWeek);
   const rawOrder     = target - currentStock;
   const calcOrder    = rawOrder <= 0 ? 0 : Math.round(rawOrder);
-  const gcOrder      = Math.min(Math.max(calcOrder, CONFIG.BAESEOK.MIN_ORDER), CONFIG.BAESEOK.MAX_ORDER);
+  const gcOrder      = Math.min(Math.max(calcOrder, CONFIG.STOCK_RULE.MIN_ORDER), CONFIG.STOCK_RULE.MAX_ORDER);
 
   console.log('발주계산 | 요일:' + dayOfWeek + ' 현재고:' + currentStock + ' 목표:' + target + ' 계산:' + calcOrder + ' 최종:' + gcOrder + ' 지연발송:' + isMondayDelay);
 
@@ -388,10 +397,10 @@ function handleOrder(data) {
   if (extras.length > 0) orderParts.push(extras.join(' · '));
   const orderSummary = orderParts.join(' / ');
 
-  const baseTarget  = CONFIG.BAESEOK.TARGET_BY_DAY[dayOfWeek];
+  const baseTarget  = CONFIG.STOCK_RULE.TARGET_BY_DAY[dayOfWeek];
   const holidayNote = target > baseTarget ? ' (+1 연휴보정)' : '';
-  const minNote     = gcOrder === CONFIG.BAESEOK.MIN_ORDER && calcOrder < CONFIG.BAESEOK.MIN_ORDER ? ' (최소' + CONFIG.BAESEOK.MIN_ORDER + '개 적용)' : '';
-  const maxNote     = gcOrder === CONFIG.BAESEOK.MAX_ORDER && calcOrder > CONFIG.BAESEOK.MAX_ORDER ? ' (최대' + CONFIG.BAESEOK.MAX_ORDER + '개 적용)' : '';
+  const minNote     = gcOrder === CONFIG.STOCK_RULE.MIN_ORDER && calcOrder < CONFIG.STOCK_RULE.MIN_ORDER ? ' (최소' + CONFIG.STOCK_RULE.MIN_ORDER + '개 적용)' : '';
+  const maxNote     = gcOrder === CONFIG.STOCK_RULE.MAX_ORDER && calcOrder > CONFIG.STOCK_RULE.MAX_ORDER ? ' (최대' + CONFIG.STOCK_RULE.MAX_ORDER + '개 적용)' : '';
   const bigoNote    = holidayNote + minNote + maxNote;
 
   if (isMondayDelay) {
@@ -717,7 +726,7 @@ function sendFoodSms(to, body, channel) {
 //  ⑥ 목표재고 계산 / 공휴일 보정 (기존 그대로)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function getTargetWithHoliday(today, dayOfWeek) {
-  const base = CONFIG.BAESEOK.TARGET_BY_DAY[dayOfWeek];
+  const base = CONFIG.STOCK_RULE.TARGET_BY_DAY[dayOfWeek];
   if (checkUpcomingHoliday(today)) {
     console.log('공휴일 감지 → 목표재고 +1개 보정 (' + base + ' → ' + (base + 1) + ')');
     return base + 1;
@@ -777,12 +786,14 @@ function sendOrderReminder() {
   const now       = new Date();
   const dayOfWeek = now.getDay();
   if (dayOfWeek === 6) { console.log('토요일 → 발주 알림 skip'); return; }
-  if (dayOfWeek === 2) { console.log('화요일 (백석 휴무) → 발주 알림 skip'); return; }
+  // ⚠️ 원당은 연중무휴라 화요일에도 발주 알림을 보냅니다.
+  //    백석은 화요일 휴무라 여기서 건너뜁니다. 복제하면서 그대로 따라올 뻔했습니다.
+  if (isOurClosedDay(now)) { console.log('휴무일 → 발주 알림 skip'); return; }
   if (isTomorrowNoDelivery(now)) { console.log('내일 납품 없음 → 발주 알림 skip'); return; }
 
   const dateStr   = formatDate(now);
   const webAppUrl = ScriptApp.getService().getUrl();
-  const r = sendAlimtalk(CONFIG.BAESEOK_ADMIN, CONFIG.KAKAO.TEMPLATES.ORDER_REMINDER, {
+  const r = sendAlimtalk(CONFIG.WONDANG_ADMIN, CONFIG.KAKAO.TEMPLATES.ORDER_REMINDER, {
     '날짜' : dateStr,
     '링크' : webAppUrl,
   });
@@ -798,7 +809,7 @@ function sendStockReminder() {
 
   const dateStr   = formatDate(now);
   const webAppUrl = ScriptApp.getService().getUrl();
-  const r = sendAlimtalk(CONFIG.BAESEOK_ADMIN, CONFIG.KAKAO.TEMPLATES.ORDER_REMINDER, {
+  const r = sendAlimtalk(CONFIG.WONDANG_ADMIN, CONFIG.KAKAO.TEMPLATES.ORDER_REMINDER, {
     '날짜' : dateStr,
     '링크' : webAppUrl,
   });
@@ -937,7 +948,7 @@ function logOrderToSheet(dateStr, gcUse, gcDone, gcIng, total, target, gcOrder, 
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(['날짜','지점','쓰는것','연육완료','연육중','현재고','목표','발주(곱창)','대창','막창','추가주문','비고']);
   }
-  const baseTarget  = CONFIG.BAESEOK.TARGET_BY_DAY[new Date().getDay()];
+  const baseTarget  = CONFIG.STOCK_RULE.TARGET_BY_DAY[new Date().getDay()];
   const holidayNote = target > baseTarget ? '연휴보정' : '-';
   const delayNote   = isMondayDelay ? ' (휴무 지연발송)' : '';
   sheet.appendRow([dateStr,BRANCH,gcUse,gcDone,gcIng,total,target,gcOrder,dc,mc,extras.join(', '),holidayNote+delayNote]);
@@ -1042,8 +1053,8 @@ function testFoodSms() {
 // [v2.0] 식자재 화요일 예약 발송 시뮬레이션
 function testFoodDelayOrder() {
   savePendingFoodOrder([
-    { supplier:'미락',   items:['양파 2','부추 1'], body:'[백석점 발주 테스트]\n양파 2, 부추 1', channel:'SMS', phone:'' },
-    { supplier:'네이버', items:['들기름','쌀'],     body:'[백석점 발주 테스트]\n들기름, 쌀',    channel:'SMS', phone:'' },
+    { supplier:'콩나물', items:['콩나물 1'],       body:'[' + BRANCH + ' 발주 테스트]\n콩나물 1', channel:'SMS', phone:'' },
+    { supplier:'음료수', items:['콜라 1'],         body:'[' + BRANCH + ' 발주 테스트]\n콜라 1',   channel:'SMS', phone:'' },
   ], formatDate(new Date()));
   console.log('식자재 예약 저장 완료 → sendPendingFoodOrder() 수동 실행으로 발송 테스트 가능');
 }
