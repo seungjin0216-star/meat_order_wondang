@@ -24,12 +24,14 @@
   .type-card:active{opacity:.75;transform:scale(.98)}
   .tc-order{border-color:#7c3aed;background:#faf5ff}
   .tc-stock{border-color:#059669;background:#f0fdf9}
+  .tc-food{border-color:#ea580c;background:#fff7ed}
   .tc-icon{font-size:34px;flex-shrink:0}
   .tc-main{font-size:17px;font-weight:700;color:#1c1c1e}
   .tc-sub{font-size:13px;color:#8e8e93;margin-top:3px}
   .tc-time{margin-left:auto;font-size:13px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0}
   .tc-order .tc-time{background:#7c3aed;color:#fff}
   .tc-stock .tc-time{background:#059669;color:#fff}
+  .tc-food .tc-time{background:#ea580c;color:#fff}
 
   /* 공통 헤더 */
   .top-bar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
@@ -126,6 +128,16 @@
       <div class="tc-icon">📦</div>
       <div><div class="tc-main">입고 입력</div><div class="tc-sub">오늘 실제 입고량 입력</div></div>
       <div class="tc-time">15:00</div>
+    </div>
+    <!-- ⚠️ 2026-09-05 — 식자재 발주를 여기서 바로 들어가게 했습니다.
+         예전에는 앱이 둘로 나뉘어 홈화면 아이콘도 둘이었습니다.
+         두 화면은 함수 이름이 겹쳐서(showLoading·toggleChip) 한 파일로 못 합칩니다.
+         대신 첫 화면에서 셋 중 하나를 고르게 해서 하나의 앱처럼 씁니다.
+         food.html 에는 이미 여기로 돌아오는 링크가 있습니다. -->
+    <div class="type-card tc-food" onclick="location.href='food.html'">
+      <div class="tc-icon">🥬</div>
+      <div><div class="tc-main">식자재 발주</div><div class="tc-sub">콩나물 · 주류 · 음료</div></div>
+      <div class="tc-time">자유</div>
     </div>
   </div>
 </div>
