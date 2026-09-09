@@ -34,6 +34,12 @@
  *    실제 업체 번호를 확인해서 하나씩 채워야 합니다.
  */
 
+// ⚠️ 발주·입고 알림 스위치 (2026-09-09)
+//    사장님 지시로 껐습니다. 「발주 넣으세요」 알림톡을 아무도 안 받아도 된다고 하셨습니다.
+//    다시 켜려면 true 로 바꾸고 CONFIG.WONDANG_ADMIN 에 번호를 넣으세요.
+//    ⚠️ 알림을 꺼도 발주·입고 자체는 그대로 돕니다. 알림톡만 안 갑니다.
+var REMINDER_ON = false;
+
 // 이 파일이 어느 지점 것인지 — 여기 한 곳만 봅니다
 var BRANCH = '원당점';
 
@@ -109,12 +115,14 @@ const CONFIG = {
   //    이제 업체 폰에 「백석」이 아니라 이 번호로 뜹니다.
   SENDER_NUMBER     : '01053226995',   // 보내는 번호 (솔라피에 인증된 것이어야 함)
 
-  // ⚠️ 아래 셋은 아직 백석 번호(01041216995)입니다. 확인하고 바꿔야 합니다.
-  //    VENDOR_NUMBER  = 고기 발주를 받는 업체 번호
-  //    WONDANG_ADMIN  = 「발주 넣으세요」 알림을 받는 사람
-  VENDOR_NUMBER     : '01041216995',   // TODO 고기 업체 번호 확인
+  // ⚠️ 고기 업체 번호 — 앱이 완전히 자리잡을 때까지 이 번호로 받습니다 (2026-09-09 사장님 지시)
+  //    확정되면 실제 고기 업체 번호로 바꿉니다.
+  VENDOR_NUMBER     : '01041216995',
   OWNER_NUMBER      : '01053226995',   // 사장님
-  WONDANG_ADMIN     : '01041216995',   // TODO 발주·입고 알림 받을 사람 확인
+
+  // ⚠️ 발주·입고 알림은 껐습니다 (2026-09-09 사장님 지시 — 아무도 안 받아도 됨)
+  //    아래 REMINDER_ON 을 true 로 바꾸고 이 번호를 채우면 다시 갑니다.
+  WONDANG_ADMIN     : '',
 
   // ⚠️ 원당 카카오 채널·템플릿 (2026-09-05 옛 원당 GAS 에서 가져옴)
   //    알림톡 본문의 「원당점」은 카카오에 등록된 템플릿에 박혀 있어
@@ -794,6 +802,7 @@ function getPublicHolidays(year, month) {
 //  ⑦ 알림 트리거 (기존 그대로)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function sendOrderReminder() {
+  if (!REMINDER_ON) { console.log('발주 알림 꺼짐 (REMINDER_ON=false) → skip'); return; }
   const now       = new Date();
   const dayOfWeek = now.getDay();
   if (dayOfWeek === 6) { console.log('토요일 → 발주 알림 skip'); return; }
@@ -813,6 +822,7 @@ function sendOrderReminder() {
 }
 
 function sendStockReminder() {
+  if (!REMINDER_ON) { console.log('입고 알림 꺼짐 (REMINDER_ON=false) → skip'); return; }
   const now       = new Date();
   const dayOfWeek = now.getDay();
   if (dayOfWeek === 6) { console.log('토요일 → 입고 알림 skip'); return; }
