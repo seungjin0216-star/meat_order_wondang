@@ -330,6 +330,79 @@ let activeSup = SUPS[0].key;
 // 발주 완료 추적 (세션 내 2차 발주 표시용)
 const completedSups = new Set();   // 이미 발주 완료된 업체 키
 
+// ═══════════════════════════════════════════════════
+// 체크 저장 — 앱을 껐다 켜도 남아 있게
+//
+//  ⚠️ 2026-09-12 추가.
+//     그전에는 체크가 화면 메모리에만 있어서, 앱을 끄면 통째로 날아갔습니다.
+//     일하다 「부추 떨어졌다」 체크해두고 나중에 발주하려던 것이 매번 사라졌습니다.
+//
+//  ── 무엇을 저장하나 ──────────────────────────────
+//     체크한 품목·수량      날짜와 무관하게 계속 남습니다.
+//                          며칠에 걸쳐 쌓아두었다가 한 번에 보내는 방식이라서입니다.
+//     오늘 보낸 업체         ⚠️ 날짜가 바뀌면 지웁니다.
+//                          어제 보낸 것이 오늘 「보냄」으로 뜨면 안 됩니다.
+//
+//  ⚠️ 이 폰 안에만 저장됩니다. 다른 사람 폰에는 안 보입니다.
+//     여럿이 각자 폰으로 체크하려면 서버에 저장하도록 바꿔야 합니다.
+// ═══════════════════════════════════════════════════
+const SAVE_KEY = 'foodOrder_wondang_v1';
+
+function 오늘키() {
+  // 자정을 넘겨 일하므로 오전 8시 전은 전날로 본다 (발주 로직과 같은 기준)
+  const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  if (d.getHours() < 8) d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function 저장() {
+  try {
+    const 체크 = {};
+    Object.keys(ST).forEach(k => {
+      if (ST[k] && ST[k].on) 체크[k] = ST[k];   // 체크된 것만 담는다
+    });
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      date: 오늘키(),
+      st: 체크,
+      sent: Array.from(completedSups),
+    }));
+  } catch (e) { /* 저장 못 해도 앱은 돌아야 한다 */ }
+}
+
+function 불러오기() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+
+    // 체크는 날짜와 상관없이 되살린다
+    Object.keys(saved.st || {}).forEach(k => {
+      if (ST[k]) ST[k] = saved.st[k];
+    });
+
+    // 「보냄」 표시는 오늘 것만
+    if (saved.date === 오늘키()) {
+      (saved.sent || []).forEach(s => completedSups.add(s));
+    }
+  } catch (e) { /* 읽기 실패하면 빈 상태로 시작 */ }
+}
+
+// 발주를 보낸 업체의 체크를 비운다 (같은 걸 또 주문하지 않도록)
+function 보낸업체비우기(supKeys) {
+  SUPS.forEach(sup => {
+    if (supKeys.indexOf(sup.key) < 0) return;
+    sup.items.forEach(item => {
+      const key = sup.key + ':' + item;
+      ST[key] = { on: false, qty: '' };
+      updateChip(key);
+    });
+    updateBadge(sup.key);
+  });
+  updateBar();
+  저장();
+}
+
+
 // 스텝퍼 상태
 let sKey       = null;
 let sQty       = 0;
@@ -392,6 +465,16 @@ function init() {
     allSecs.appendChild(section);
   });
 
+  // ⚠️ 2026-09-12 — 화면을 다 그린 뒤에 지난 체크를 되살린다.
+  //    그리기 전에 부르면 칩이 아직 없어서 표시가 안 된다.
+  불러오기();
+  SUPS.forEach(sup => {
+    sup.items.forEach(item => updateChip(sup.key + ':' + item));
+    updateBadge(sup.key);
+    const tab = document.getElementById('stab-' + sup.key);
+    if (tab) tab.classList.toggle('done', completedSups.has(sup.key));
+  });
+
   updateInfoBar(activeSup);
   updateBar();
 }
@@ -447,6 +530,7 @@ function toggleAllActive() {
     const key = sup.key + ':' + item;
     ST[key].on  = !allOn;
     if (allOn) ST[key].qty = '';
+    저장();
     updateChip(key);
   });
   updateBadge(sup.key);
@@ -460,6 +544,7 @@ function toggleAllActive() {
 function toggleChip(key, supKey) {
   ST[key].on  = !ST[key].on;
   ST[key].qty = '';
+  저장();
   updateChip(key);
   updateBadge(supKey);
   updateBar();
@@ -514,6 +599,7 @@ function stpConfirm() {
     const supKey = sKey.split(':')[0];
     ST[sKey].on  = sQty > 0;
     ST[sKey].qty = sQty > 0 ? String(sQty) : '';
+    저장();
     updateChip(sKey);
     updateBadge(supKey);
     updateBar();
@@ -765,6 +851,8 @@ function showDone(msgs, dev) {
       const tab = document.getElementById('stab-' + sup.key);
       if (tab) tab.classList.toggle('done', completedSups.has(sup.key));
     });
+    // ⚠️ 2026-09-12 — 보낸 업체의 체크는 비운다. 안 그러면 같은 걸 또 주문한다.
+    보낸업체비우기(msgs.map(m => m.supplier));
   }
 
   document.getElementById('done-icon').textContent  = dev ? '📋' : (delayed ? '🕗' : '✅');
