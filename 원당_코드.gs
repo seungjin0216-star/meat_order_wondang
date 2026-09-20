@@ -1140,3 +1140,105 @@ function jsonResponse(obj) {
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  📦 원당데이터_이동 — 섞여 있던 원당 기록을 _원당 탭으로 옮긴다
+//
+//  2026-09-20. 사장님 요청.
+//    「원당과 백석 시트 탭 구분 없이 둘 다 하나로 데이터가 쌓이는데
+//      추후에 파악하기가 귀찮아. 탭을 나눠서 쌓이게끔 해줘」
+//
+//  ── 무엇을 하나 ──────────────────────────────────────────
+//    발주기록    →  발주기록_원당
+//    입고기록    →  입고기록_원당
+//    식자재발주  →  식자재발주_원당
+//    발송실패    →  발송실패_원당
+//
+//    각 탭의 B열(지점)이 '원당점' 인 줄만 옮깁니다.
+//    ⚠️ 백석 줄은 손도 안 댑니다.
+//
+//  ── 안전장치 ────────────────────────────────────────────
+//    ① 먼저 새 탭에 복사하고, 복사가 끝난 뒤에 원래 줄을 지웁니다.
+//       중간에 끊겨도 데이터가 사라지지 않습니다 (중복될 뿐).
+//    ② 새 탭이 없으면 헤더까지 만들어 둡니다.
+//    ③ 미리보기가 먼저입니다.
+//
+//  ⚠️ 한 번 적용한 뒤에 또 돌리면 「옮길 것 없음」이 나와야 정상입니다.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+var 이동표_ = [
+  { 원래: '발주기록',   새것: '발주기록_원당',   지점열: 2 },
+  { 원래: '입고기록',   새것: '입고기록_원당',   지점열: 2 },
+  { 원래: '식자재발주', 새것: '식자재발주_원당', 지점열: 2 },
+  { 원래: '발송실패',   새것: '발송실패_원당',   지점열: 2 },
+];
+
+function 원당데이터_이동_미리보기() { 원당데이터_이동_(true); }
+function 원당데이터_이동_적용()     { 원당데이터_이동_(false); }
+
+function 원당데이터_이동_(dryRun) {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+
+  Logger.log('\n ════════ 원당 기록을 _원당 탭으로 ════════\n');
+
+  var 총옮김 = 0;
+
+  이동표_.forEach(function (규칙) {
+    var 원 = ss.getSheetByName(규칙.원래);
+    if (!원) { Logger.log('   ' + 규칙.원래 + '  (탭이 없습니다 — 건너뜀)'); return; }
+    if (원.getLastRow() < 2) { Logger.log('   ' + 규칙.원래 + '  (비어 있음)'); return; }
+
+    var 폭 = 원.getLastColumn();
+    var 값 = 원.getRange(1, 1, 원.getLastRow(), 폭).getValues();
+    var 헤더 = 값[0];
+
+    var 옮길줄 = [], 옮길행 = [];
+    for (var i = 1; i < 값.length; i++) {
+      var 지점 = String(값[i][규칙.지점열 - 1] || '').trim();
+      if (지점 !== '원당점') continue;
+      옮길줄.push(값[i]);
+      옮길행.push(i + 1);
+    }
+
+    Logger.log('   ' + (규칙.원래 + '            ').slice(0, 12) +
+               '전체 ' + (값.length - 1) + '줄 중 원당 ' + 옮길줄.length + '줄  →  ' + 규칙.새것);
+
+    if (!옮길줄.length) return;
+
+    // 샘플 세 줄
+    옮길줄.slice(0, 3).forEach(function (r) {
+      Logger.log('      ' + r.slice(0, 4).map(function (c) { return String(c).slice(0, 14); }).join(' · '));
+    });
+    if (옮길줄.length > 3) Logger.log('      … 그 외 ' + (옮길줄.length - 3) + '줄');
+
+    총옮김 += 옮길줄.length;
+    if (dryRun) return;
+
+    // ── ① 새 탭에 먼저 복사 ──
+    var 새 = ss.getSheetByName(규칙.새것);
+    if (!새) {
+      새 = ss.insertSheet(규칙.새것);
+      새.appendRow(헤더);
+      새.getRange(1, 1, 1, 헤더.length).setFontWeight('bold').setBackground('#e0e7ff');
+    }
+    새.getRange(새.getLastRow() + 1, 1, 옮길줄.length, 폭).setValues(옮길줄);
+    SpreadsheetApp.flush();          // ⚠️ 복사가 끝난 걸 확인하고 나서 지웁니다
+
+    // ── ② 원래 줄 삭제 (아래에서 위로) ──
+    옮길행.sort(function (a, b) { return b - a; })
+          .forEach(function (row) { 원.deleteRow(row); });
+
+    Logger.log('      ✅ 옮기고 원래 줄을 지웠습니다');
+  });
+
+  Logger.log('\n   ──────────────────────────────');
+  Logger.log('   옮길 것 ' + 총옮김 + '줄');
+  Logger.log('   ⚠️ 백석 줄은 하나도 안 건드립니다.');
+
+  if (dryRun) {
+    Logger.log('\n   ※ 미리보기입니다. 원당데이터_이동_적용() 을 실행하세요.');
+  } else {
+    Logger.log('\n   ✅ 끝났습니다. 다시 돌리면 「0줄」이 나와야 정상입니다.');
+  }
+}
