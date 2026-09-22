@@ -816,12 +816,24 @@ async function submitAll() {
 
   showLoading(delayed ? '발주 저장 중...' : '문자 발송 중...');
   try {
+    // ⚠️ 2026-09-22 — no-cors 로 바꿨습니다. 답장을 아예 안 읽습니다.
+    //
+    //    그전에는 답장을 읽으려다 실패하면 catch 로 빠져서 「오류」 창이 떴습니다.
+    //    ⚠️ 그런데 문자는 이미 나간 뒤였습니다. 시트에도 찍혀 있었습니다.
+    //       직원 눈에만 실패로 보인 것입니다. 그래서 또 눌렀습니다 (9/17 주류 6통).
+    //    ⚠️ 게다가 체크도 안 지워져서 다음날 그 위에 또 얹혔습니다.
+    //       콩나물이 1 → 2 → 3 으로 하루에 하나씩 쌓인 게 이것입니다.
+    //
+    //    이제 답장을 안 기다리니 그 길로 새지 않습니다.
+    //    중복은 서버가 막습니다 (같은 내용 10분 안에는 안 보냄).
+    //    ⚠️ 발송이 진짜 실패하면 서버가 사장님 메일로 알립니다.
     const res = await fetch(CFG.GAS_URL, {
       method: 'POST',
+      mode: 'no-cors',
       headers: {'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({
         type: 'food_order',
-        branch: 'baekseok',
+        branch: 'wondang',
         delay_to_tuesday: delayed,
         messages: msgs.map(m => ({
           supplier: m.supplier,
@@ -832,9 +844,8 @@ async function submitAll() {
         }))
       })
     });
-    const data = await res.json();
     hideLoading();
-    showDone(msgs, false, data);
+    showDone(msgs, false, null);   // no-cors 라 답장은 없습니다
   } catch(e) {
     hideLoading();
     alert('오류: ' + e.message);
@@ -919,7 +930,7 @@ init();
   <span><span class="rb-text">최신화</span><br><span class="rb-ver">v2026-08-22a</span></span>
 </div>
 <script>
-const APP_VERSION = '2026-08-22a';
+const APP_VERSION = '2026-09-22a';
 document.getElementById('refresh-btn').addEventListener('click', function () {
   if (!confirm('최신 화면으로 다시 받아올까요?\n지금 버전 v' + APP_VERSION)) return;
   // 주소 뒤에 시각을 붙이면 폰이 저장해둔 화면을 못 쓰고 새로 받는다

@@ -596,6 +596,48 @@ function handleStock(data) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  ⑤ [v2.0] 식자재 발주 처리
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ══════════════════════════════════════════════════════════
+//  같은 발주가 두 번 나가는 것을 막습니다 (2026-09-22)
+//
+//  2026-09-19 무슨 일이 있었나
+//    콩나물 문자가 1분 안에 세 번 나갔습니다. 주류는 9/17 에 여섯 번 나갔습니다.
+//
+//  왜 그랬나 — 직원 잘못이 아닙니다
+//    ① 누름 → 서버가 문자를 보냄 → 시트에 찍힘
+//    ② 그런데 화면이 답장을 못 받음 → 「오류」 창이 뜸
+//    ③ 직원 눈에는 실패로 보임 → 또 누름 → 또 나감
+//
+//  ⚠️ 그래서 화면을 믿지 않고 서버가 직접 막습니다.
+//     같은 업체에 같은 내용이 10분 안에 또 오면 문자를 안 보냅니다.
+//     ⚠️ 내용이 다르면 (추가 발주면) 그냥 나갑니다. 막는 건 똑같은 재전송뿐입니다.
+// ══════════════════════════════════════════════════════════
+
+const 중복막는시간_분 = 10;
+
+function 중복인가_(supplier, body) {
+  try {
+    const key   = '최근발송_' + supplier;
+    const props = PropertiesService.getScriptProperties();
+    const raw   = props.getProperty(key);
+    const 지금   = new Date().getTime();
+
+    if (raw) {
+      const 전 = JSON.parse(raw);
+      if (전.body === body && 지금 - 전.at < 중복막는시간_분 * 60 * 1000) {
+        const 분전 = Math.round((지금 - 전.at) / 60000);
+        console.log('⚠️ 같은 발주가 ' + 분전 + '분 전에 나갔습니다 → 안 보냅니다 | ' + supplier);
+        return true;
+      }
+    }
+    props.setProperty(key, JSON.stringify({ body: body, at: 지금 }));
+    return false;
+  } catch (err) {
+    // ⚠️ 여기서 막히면 발주가 아예 안 나갑니다. 못 확인하면 그냥 보냅니다.
+    console.log('중복 확인 실패 → 그냥 보냅니다: ' + err.message);
+    return false;
+  }
+}
+
 function handleFoodOrder(data) {
   const msgs    = data.messages || [];
   const now     = new Date();
@@ -635,6 +677,7 @@ function handleFoodOrder(data) {
     // 즉시 발송
     const results = [];
     const 실패   = [];
+    const 건너뜀 = [];
     msgs.forEach(function(m) {
       const phone = (m.phone || CONFIG.FOOD.PHONES[m.supplier] || '').replace(/-/g, '');
       if (!phone) {
@@ -643,6 +686,14 @@ function handleFoodOrder(data) {
         실패.push(m.supplier + ': 전화번호 없음');
         return;
       }
+
+      // ⚠️ 방금 같은 걸 보냈으면 안 보냅니다. 화면이 실패로 보여 또 눌렀을 때입니다.
+      if (중복인가_(m.supplier, m.body)) {
+        건너뜀.push(m.supplier);
+        results.push({ supplier: m.supplier, ok: true, skipped: true, channel: m.channel });
+        return;
+      }
+
       const r = sendFoodSms(phone, m.body, m.channel);
       results.push({ supplier: m.supplier, ok: r.ok, channel: m.channel });
       if (!r.ok) 실패.push(m.supplier + ': ' + r.message);
@@ -657,8 +708,11 @@ function handleFoodOrder(data) {
       return jsonResponse({ ok: false, results: results, failed: 실패 });
     }
 
+    if (건너뜀.length) {
+      console.log('중복이라 안 보낸 업체: ' + 건너뜀.join(', '));
+    }
     console.log('식자재 발주 즉시 발송 완료: ' + dateStr);
-    return jsonResponse({ ok: true, results: results });
+    return jsonResponse({ ok: true, results: results, skipped: 건너뜀 });
   }
 }
 
