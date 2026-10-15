@@ -35,3 +35,8 @@ logs/
 debug-*.png
 inspect*.png
 screenshot*.png
+
+# ── clasp (26-10-15) ──
+.clasp.json
+_gas/
+_gas_백업_*/

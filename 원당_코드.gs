@@ -36,10 +36,10 @@
  *    합치지 않은 이유는 백석 발주가 매일 돌아가는 실전 시스템이라
  *    건드리다 멈추면 그날 장사에 지장이 생기기 때문입니다.
  *
- * ✅ 2026-09-09 — 발신번호 인증 완료. SENDER_NUMBER 를 01053226995 로 바꿨습니다.
+ * ✅ 2026-09-09 — 발신번호 인증 완료. SENDER_NUMBER 를 끝6995 로 바꿨습니다.
  *    이제 업체 폰에 「백석」이 아니라 원당 번호로 뜹니다.
  *
- * ⚠️ 아직 백석 번호(01041216995)로 남아 있는 것들이 있습니다.
+ * ⚠️ 아직 백석 번호(끝6995)로 남아 있는 것들이 있습니다.
  *       VENDOR_NUMBER          고기 발주를 받는 업체
  *       WONDANG_ADMIN          「발주 넣으세요」 알림을 받는 사람
  *       FOOD.PHONES 여러 곳     미락·콩나물·주류·음료수 등
@@ -117,6 +117,19 @@ var BRANCH = '원당점';
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const _PROPS = PropertiesService.getScriptProperties();
 
+// 📞 번호는 코드 밖으로 (26-10-15 · 문서/20_보안_점검표.md 3-①②) — 백석 발주와 같은 방식
+//    스크립트 속성 PHONES_JSON 한 칸. 1단계에서 옛번호_ 로 채우고 2단계에서 비웁니다
+// ⚠️ 26-10-15 2단계 — 번호는 스크립트 속성 PHONES_JSON 에만 (1단계 @10 에서 옮김). 속성이 지워지면 git 의 @10 판에서 다시
+const 옛번호_ = { SENDER: '', 업체: {} };
+function 번호표_() {
+  if (번호표_.v) return 번호표_.v;
+  let v = null;
+  try { v = JSON.parse(_PROPS.getProperty('PHONES_JSON') || 'null'); } catch (e) {}
+  if (!v && 옛번호_.SENDER) { _PROPS.setProperty('PHONES_JSON', JSON.stringify(옛번호_)); v = 옛번호_; }
+  번호표_.v = v || { 업체: {} };
+  return 번호표_.v;
+}
+
 const CONFIG = {
   SOLAPI_API_KEY    : (_PROPS.getProperty('SOLAPI_API_KEY')    || '').trim(),
   SOLAPI_API_SECRET : (_PROPS.getProperty('SOLAPI_API_SECRET') || '').trim(),
@@ -126,12 +139,12 @@ const CONFIG = {
 
   // ✅ 2026-09-09 — 솔라피 발신번호 인증 완료. 원당 관리자 번호로 바꿨습니다.
   //    이제 업체 폰에 「백석」이 아니라 이 번호로 뜹니다.
-  SENDER_NUMBER     : '01053226995',   // 보내는 번호 (솔라피에 인증된 것이어야 함)
+  SENDER_NUMBER     : 번호표_().SENDER || '',   // 보내는 번호 (솔라피에 인증된 것이어야 함) · 📞 PHONES_JSON
 
   // ⚠️ 고기 업체 번호 — 앱이 완전히 자리잡을 때까지 이 번호로 받습니다 (2026-09-09 사장님 지시)
   //    확정되면 실제 고기 업체 번호로 바꿉니다.
-  VENDOR_NUMBER     : '01041216995',
-  OWNER_NUMBER      : '01053226995',   // 사장님
+  VENDOR_NUMBER     : 번호표_().VENDOR || '',
+  OWNER_NUMBER      : 번호표_().OWNER || '',   // 사장님
 
   // ⚠️ 발주·입고 알림은 껐습니다 (2026-09-09 사장님 지시 — 아무도 안 받아도 됨)
   //    아래 REMINDER_ON 을 true 로 바꾸고 이 번호를 채우면 다시 갑니다.
@@ -174,17 +187,7 @@ const CONFIG = {
     // 업체 전화번호 (숫자만, 하이픈 없이) — 확인 후 채워넣기
     // ⚠️ 2026-09-12 — 화면(food.html)이 보내는 번호를 먼저 씁니다.
     //    여기는 화면이 번호를 안 보냈을 때의 예비값입니다. 둘을 같이 맞춰둡니다.
-    PHONES: {
-      '미락'    : '01089421859',
-      '콩나물'  : '01062333466',
-      '주류'    : '01056219640',   // 2026-09-19 원당 주류업체 (백석 01056079640 과 다름)
-      '음료수'  : '01037982411',
-      '백석'    : '01041216995',   // 원당은 백석에서 대파김치를 받아옵니다
-      '원당'    : '01053226995',
-      '네이버'  : '01053226995',
-      '배달관련': '01053226995',
-      '사장님'  : '01053226995',
-    },
+    PHONES: 번호표_().업체,   // 📞 26-10-15 스크립트 속성 PHONES_JSON
   },
 
   HOLIDAY_API_KEY : '',
@@ -364,6 +367,12 @@ function shouldHoldUntilTuesday(now) {
 //  ① HTML 반환
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function doGet(e) {
+  // 📞 번호가 스크립트 속성에 있나 — 개수만 (26-10-15)
+  if (e && e.parameter && e.parameter.action === 'phonesok') {
+    const v = 번호표_();
+    return ContentService.createTextOutput(JSON.stringify({ ok: !!_PROPS.getProperty('PHONES_JSON'), 업체수: Object.keys(v.업체 || {}).length,
+      빈칸: ['SENDER', 'VENDOR', 'OWNER'].filter(function (k) { return !v[k]; }) })).setMimeType(ContentService.MimeType.JSON);
+  }
   return HtmlService
     .createHtmlOutputFromFile('index')
     .setTitle(BRANCH + ' 발주·입고')
@@ -692,7 +701,7 @@ function handleFoodOrder(data) {
     const 실패   = [];
     const 건너뜀 = [];
     msgs.forEach(function(m) {
-      const phone = (m.phone || CONFIG.FOOD.PHONES[m.supplier] || '').replace(/-/g, '');
+      const phone = String(CONFIG.FOOD.PHONES[m.supplier] || '').replace(/-/g, '');   // 🔴 26-10-15 등록 번호만 (화면이 보낸 번호 무시 · 보안 3-①)
       if (!phone) {
         console.log(m.supplier + ' 전화번호 없음 → skip');
         results.push({ supplier: m.supplier, ok: false, message: '전화번호 없음' });
@@ -779,7 +788,7 @@ function sendPendingFoodOrder() {
 
   const 실패 = [];
   pending.msgs.forEach(function(m) {
-    const phone = (m.phone || CONFIG.FOOD.PHONES[m.supplier] || '').replace(/-/g, '');
+    const phone = String(CONFIG.FOOD.PHONES[m.supplier] || '').replace(/-/g, '');   // 🔴 26-10-15 등록 번호만 (보안 3-①)
     if (!phone) {
       console.log(m.supplier + ' 전화번호 없음 → skip');
       실패.push(m.supplier + ': 전화번호 없음');
