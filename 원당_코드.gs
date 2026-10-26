@@ -373,6 +373,14 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify({ ok: !!_PROPS.getProperty('PHONES_JSON'), 업체수: Object.keys(v.업체 || {}).length,
       빈칸: ['SENDER', 'VENDOR', 'OWNER'].filter(function (k) { return !v[k]; }) })).setMimeType(ContentService.MimeType.JSON);
   }
+  // 🏠 26-10-26 원당 직원앱 홈 — 어제·오늘 넣은 발주 (업체별 · 몇 시에) · 사장님 「어제 발주 넣은 것 · 오늘 발주 넣은 것 · 업체별로 몇 시에 넣었는지」
+  //    읽기만 · 번호는 안 줌 · JSONP (callback) 도 됨
+  if (e && e.parameter && e.parameter.action === 'orders') {
+    const out = 발주기록_();
+    const json = JSON.stringify(out);
+    if (e.parameter.callback) return ContentService.createTextOutput(e.parameter.callback + '(' + json + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);
+    return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+  }
   return HtmlService
     .createHtmlOutputFromFile('index')
     .setTitle(BRANCH + ' 발주·입고')
@@ -1069,6 +1077,23 @@ function logStockToSheet(dateStr, gc, dc, mc, bs, extras) {
 }
 
 // [v2.0] 식자재 발주 기록
+/* 🏠 어제·오늘 발주 (식자재발주_원당 탭) — G칸 「시각」은 26-10-26 부터 (그 전 줄은 시각 없음) */
+function 발주기록_() {
+  const now = new Date(), biz = getBusinessDate(now), 어제 = new Date(biz); 어제.setDate(어제.getDate() - 1);
+  const 오늘키 = formatDate(biz), 어제키 = formatDate(어제), out = { ok: true, today: 오늘키, yesterday: 어제키, 오늘: [], 어제: [] };
+  const sheet = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID).getSheetByName(CONFIG.FOOD.SHEET_NAME);
+  if (!sheet || sheet.getLastRow() < 2) return out;
+  const n = Math.min(400, sheet.getLastRow() - 1), v = sheet.getRange(sheet.getLastRow() - n + 1, 1, n, 7).getValues();
+  v.forEach(function (r) {
+    const d = (r[0] instanceof Date) ? formatDate(r[0]) : String(r[0]).trim();
+    const 칸 = d === 오늘키 ? out.오늘 : d === 어제키 ? out.어제 : null;
+    if (!칸 || String(r[1]).trim() !== BRANCH) return;
+    const 시 = r[6] instanceof Date ? Utilities.formatDate(r[6], 'Asia/Seoul', 'HH:mm') : String(r[6] || '').trim();
+    칸.push({ supplier: String(r[2] || ''), items: String(r[3] || ''), at: 시 });
+  });
+  return out;
+}
+
 function logFoodOrderToSheet(dateStr, msgs, delayed) {
   try {
     const ss    = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
@@ -1078,11 +1103,13 @@ function logFoodOrderToSheet(dateStr, msgs, delayed) {
       sheet.appendRow(['날짜', '지점', '업체', '발주항목', '채널', '즉시/예약']);
       sheet.getRange(1, 1, 1, 6).setFontWeight('bold').setBackground('#ede9fe');
     }
+    if (String(sheet.getRange(1, 7).getValue() || '') === '') sheet.getRange(1, 7).setValue('시각');   // 26-10-26 직원앱 홈 「몇 시에」
+    const 시각 = Utilities.formatDate(new Date(), 'Asia/Seoul', 'HH:mm');
     msgs.forEach(function(m) {
       sheet.appendRow([
         dateStr, BRANCH, m.supplier,
         (m.items ? m.items.join(', ') : m.body), m.channel,
-        delayed ? '예약(화20:30)' : '즉시',
+        delayed ? '예약(화20:30)' : '즉시', 시각,
       ]);
     });
   } catch (err) {
