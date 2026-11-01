@@ -375,6 +375,13 @@ function doGet(e) {
   }
   // 🏠 26-10-26 원당 직원앱 홈 — 어제·오늘 넣은 발주 (업체별 · 몇 시에) · 사장님 「어제 발주 넣은 것 · 오늘 발주 넣은 것 · 업체별로 몇 시에 넣었는지」
   //    읽기만 · 번호는 안 줌 · JSONP (callback) 도 됨
+  // 🥩 26-11-01 원당 직원앱 고기입고 — 오늘 입고가 나갔나 (두 폰이 같이 봄 · 백석 meatToday 와 같은 꼴 · 원당은 입고만)
+  if (e && e.parameter && e.parameter.action === 'meatToday') {
+    let json;
+    try { json = JSON.stringify(오늘입고_()); } catch (err) { json = JSON.stringify({ ok: false, error: err.message }); }
+    if (e.parameter.callback) return ContentService.createTextOutput(e.parameter.callback + '(' + json + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);
+    return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+  }
   if (e && e.parameter && e.parameter.action === 'orders') {
     const out = 발주기록_();
     const json = JSON.stringify(out);
@@ -592,7 +599,14 @@ function sendPendingMondayOrder() {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  ④ 입고 처리 (기존 그대로)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/* 🥩 26-11-01 사장님: 「11월달부터 백석처럼 고기 입고 넣어서 자동 손익계산서 만들기.
+     (백석과 다르게 발주는 필요없고 입고만 동일하게 하면됨 … 반영되는 단가 등은 백석과 동일)」
+   → 백석 handleStock 과 같은 순서: 3분 안 같은 것 건너뜀 · 같은 날 다시 오면 정정(앞 줄 H 「대체됨」) · H 상태 · I 보낸 시각
+   ⚠️ 손익 GAS syncMeatCosts('원당점') 가 「입고기록_원당」 탭 A~H 를 읽습니다 — 칸 순서를 바꾸지 말 것
+   입고 알림: 원당 사장님(OWNER_NUMBER)에게만 · 고기업체에는 안 감 (원당은 발주를 안 씀) */
+const 원당입고알림_ = '사장님';   // 26-11-01 사장님 「백석 사장님이 받는 것처럼 원당 사장님한테만 카톡 알림」 · '없음' | '사장님' | '사장님+업체'
 function handleStock(data) {
+  if (방금같은것_('stock', data)) { console.log('같은 입고가 3분 안에 또 옴 → 건너뜀'); return jsonResponse({ ok: true, dup: true }); }
   const gc     = parseInt(data.gc)  || 0;
   const dc     = parseInt(data.dc)  || 0;
   const mc     = parseInt(data.mc)  || 0;
@@ -600,8 +614,11 @@ function handleStock(data) {
   const extras = data.extras || [];
 
   const dateStr = formatDate(new Date());
+  const 앞입고수 = 앞줄대체_(CONFIG.SHEET_STOCK, dateStr, 8), 입고정정 = 앞입고수 > 0;
+  if (입고정정) console.log('정정 입고 | 앞 입고 ' + 앞입고수 + '줄 대체됨');
   logStockToSheet(dateStr, gc, dc, mc, bs, extras);
 
+  if (원당입고알림_ === '없음') return jsonResponse({ ok: true, correction: 입고정정 });
   const stockParts = [];
   if (gc > 0) stockParts.push('곱창 ' + gc + '개');
   if (dc > 0) stockParts.push('대창 ' + dc + '개');
@@ -609,18 +626,55 @@ function handleStock(data) {
   if (bs > 0) stockParts.push('박스 ' + bs + '개');
   if (extras.length > 0) stockParts.push(extras.join(' · '));
   const stockSummary = stockParts.length > 0 ? stockParts.join(' / ') : '입고 없음';
-
-  const stockVars = { '날짜': dateStr, '입고요약': stockSummary };
-  const s1 = sendAlimtalk(CONFIG.OWNER_NUMBER,  CONFIG.KAKAO.TEMPLATES.STOCK_REPORT, stockVars);
-  const s2 = sendAlimtalk(CONFIG.VENDOR_NUMBER, CONFIG.KAKAO.TEMPLATES.STOCK_REPORT, stockVars);
-
-  if (!s1.ok || !s2.ok) {
-    alertFailure('입고 알림 발송 실패', stockSummary, (s1.error || s2.error));
-    return jsonResponse({ ok: false, error: (s1.error || s2.error) });
-  }
-
-  return jsonResponse({ ok: true });
+  const stockVars = { '날짜': dateStr + (입고정정 ? ' ⚠️정정' : ''), '입고요약': (입고정정 ? '⚠️ 정정 — 앞서 보낸 입고 대신 이것입니다\n' : '') + stockSummary };
+  const 받는곳 = 원당입고알림_ === '사장님+업체' ? [CONFIG.OWNER_NUMBER, CONFIG.VENDOR_NUMBER] : [CONFIG.OWNER_NUMBER];
+  const rs = 받는곳.map(function (n) { return sendAlimtalk(n, CONFIG.KAKAO.TEMPLATES.STOCK_REPORT, stockVars); });
+  const 실패 = rs.filter(function (r) { return !r.ok; })[0];
+  if (실패) { alertFailure('입고 알림 발송 실패', stockSummary, 실패.error); return jsonResponse({ ok: false, error: 실패.error }); }   // ⚠️ 기록은 이미 남음
+  return jsonResponse({ ok: true, correction: 입고정정 });
 }
+
+/** 3분 안에 똑같은 것이 또 오면 true (백석 방금같은것_ 그대로 · 날짜 칸은 빼고 비교) */
+function 방금같은것_(종류, data) {
+  const 내용 = JSON.stringify(data, function (k, v) { return k === 'date' ? undefined : v; });
+  const key = 'dup_' + 종류 + '_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, 내용, Utilities.Charset.UTF_8));
+  const cache = CacheService.getScriptCache();
+  if (cache.get(key)) return true;
+  cache.put(key, '1', 180);
+  return false;
+}
+/** 같은 날 원당점 앞 줄에 「대체됨」 — 고친 수만 돌려줌 (백석 앞줄대체_ 와 같음 · 지점만 원당점) */
+function 앞줄대체_(시트이름, dateStr, 상태열) {
+  const sheet = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID).getSheetByName(시트이름);
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  const h = sheet.getRange(1, 상태열, 1, 2).getValues()[0];
+  if (!h[0]) sheet.getRange(1, 상태열).setValue('상태');
+  if (!h[1]) sheet.getRange(1, 상태열 + 1).setValue('보낸 시각');
+  const n = Math.min(300, sheet.getLastRow() - 1), 시작 = sheet.getLastRow() - n + 1;
+  const v = sheet.getRange(시작, 1, n, 상태열).getValues();
+  let 수 = 0;
+  for (let i = 0; i < v.length; i++) {
+    if (String(v[i][0]).trim() !== dateStr || String(v[i][1]).trim() !== BRANCH) continue;
+    if (String(v[i][상태열 - 1]).trim() === '대체됨') continue;
+    sheet.getRange(시작 + i, 상태열).setValue('대체됨'); 수++;
+  }
+  return 수;
+}
+/** 오늘 입고가 나갔나 — 보낸 시각 또는 null (읽기만) */
+function 오늘입고_() {
+  const 오늘 = formatDate(new Date());
+  const sh = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID).getSheetByName(CONFIG.SHEET_STOCK);
+  if (!sh || sh.getLastRow() < 2) return { ok: true, date: 오늘, stock: null };
+  const n = Math.min(100, sh.getLastRow() - 1), 폭 = Math.min(9, sh.getLastColumn());
+  const v = sh.getRange(sh.getLastRow() - n + 1, 1, n, 폭).getValues();
+  for (let i = v.length - 1; i >= 0; i--) {
+    if (String(v[i][0]).trim() !== 오늘 || String(v[i][1]).trim() !== BRANCH) continue;
+    if (String(v[i][7] || '').trim() === '대체됨') continue;
+    return { ok: true, date: 오늘, stock: String(v[i][8] || '').trim() || '보냄' };
+  }
+  return { ok: true, date: 오늘, stock: null };
+}
+function 오늘입고_확인() { Logger.log(JSON.stringify(오늘입고_())); }
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1073,7 +1127,8 @@ function logStockToSheet(dateStr, gc, dc, mc, bs, extras) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(['날짜','지점','곱창 입고','대창 입고','막창 입고','박스 입고','기타']);
   }
-  sheet.appendRow([dateStr,BRANCH,gc,dc,mc,bs,extras.join(', ')]);
+  // 26-11-01 H 상태 · I 보낸 시각 (백석과 같음) — 손익은 A~H 를 읽음
+  sheet.appendRow([dateStr,BRANCH,gc,dc,mc,bs,extras.join(', '),'',Utilities.formatDate(new Date(), 'Asia/Seoul', 'HH시mm분')]);
 }
 
 // [v2.0] 식자재 발주 기록
