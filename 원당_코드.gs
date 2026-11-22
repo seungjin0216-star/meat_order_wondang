@@ -382,6 +382,12 @@ function doGet(e) {
     if (e.parameter.callback) return ContentService.createTextOutput(e.parameter.callback + '(' + json + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);
     return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
   }
+  // 🧂 26-11-22 백석 직원앱 — 원당이 백석에 보낸 요청(대파김치 등) 중 아직 안 보낸 것 · 읽기만 · 14일 안
+  if (e && e.parameter && e.parameter.action === 'baekReq') {
+    const json = JSON.stringify(백석요청_());
+    if (e.parameter.callback) return ContentService.createTextOutput(e.parameter.callback + '(' + json + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);
+    return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+  }
   if (e && e.parameter && e.parameter.action === 'orders') {
     const out = 발주기록_();
     const json = JSON.stringify(out);
@@ -404,6 +410,7 @@ function doPost(e) {
     if (data.type === 'order')      return handleOrder(data);
     if (data.type === 'stock')      return handleStock(data);
     if (data.type === 'food_order') return handleFoodOrder(data); // [v2.0]
+    if (data.type === 'baek_done')  return 백석요청완료_(data);     // 🧂 26-11-22 백석에서 「원당에 보냄」
     return jsonResponse({ ok: false, message: '알 수 없는 type' });
   } catch (err) {
     console.log('doPost 오류: ' + err.message);
@@ -723,7 +730,7 @@ function 중복인가_(supplier, body) {
 }
 
 function handleFoodOrder(data) {
-  const msgs    = data.messages || [];
+  let msgs      = data.messages || [];
   const now     = new Date();
   const bizNow  = getBusinessDate(now);
   const dateStr = formatDate(bizNow);
@@ -746,8 +753,18 @@ function handleFoodOrder(data) {
 
   if (msgs.length === 0) return jsonResponse({ ok: false, message: '발주 항목 없음' });
 
+  /* 🧂 26-11-22 사장님 「원당에서 백석-대파김치 시키면 문자가 가게끔 하는데 문자 대신에 백석 매장통합앱에 뜨게끔 하자.
+        원당에서 대파김치를 몇 요일에 신청했다가 뜨게끔 · 그거 보고 가능한 날에 준비해서 보내 주는 식으로」
+     → 「백석」 앞으로 간 것은 문자를 안 보내고 시트에만 (채널 「앱」 · H칸 상태) → 백석 직원앱이 ?action=baekReq 로 읽어 「원당 요청」 카드
+       백석에서 「원당에 보냄」 누르면 {type:'baek_done'} → H칸 「완료 MM/dd HH:mm」 */
+  const 앱업체 = ['백석'];
+  msgs.forEach(function (m) { if (앱업체.indexOf(m.supplier) >= 0) m.channel = '앱'; });
+  const 문자로 = msgs.filter(function (m) { return 앱업체.indexOf(m.supplier) < 0; });
+
   // 스프레드시트 기록 (즉시 / 예약 모두)
-  logFoodOrderToSheet(dateStr, msgs, delayed);
+  logFoodOrderToSheet(dateStr, msgs, delayed && 문자로.length > 0);
+  msgs = 문자로;
+  if (!msgs.length) return jsonResponse({ ok: true, app: true });
 
   if (delayed && scheduleFoodTrigger(now)) {
     // 월·화 발주 → 화요일 20:30 예약
@@ -1147,6 +1164,30 @@ function 발주기록_() {
     칸.push({ supplier: String(r[2] || ''), items: String(r[3] || ''), at: 시 });
   });
   return out;
+}
+
+/** 🧂 원당 → 백석 요청 중 안 끝난 것 (식자재발주_원당 · 업체 「백석」 · 채널 「앱」 · H칸 「완료」 아님) — 14일 안 */
+function 백석요청_() {
+  const sh = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID).getSheetByName(CONFIG.FOOD.SHEET_NAME);
+  if (!sh || sh.getLastRow() < 2) return { ok: true, items: [] };
+  const n = Math.min(300, sh.getLastRow() - 1), 시작 = sh.getLastRow() - n + 1;
+  const v = sh.getRange(시작, 1, n, 8).getDisplayValues(), 끝 = new Date(); 끝.setDate(끝.getDate() - 14);
+  const 끝글 = formatDate(끝), out = [];
+  v.forEach(function (r, i) {
+    if (String(r[2]).trim() !== '백석' || String(r[4]).trim() !== '앱') return;   // 26-11-22 부터 앱으로 간 것만 (옛 문자 줄은 안 띄움)
+    if (/^완료/.test(String(r[7]).trim()) || String(r[0]) < 끝글) return;
+    out.push({ row: 시작 + i, date: String(r[0]), items: String(r[3]), at: String(r[6] || '') });
+  });
+  return { ok: true, items: out };
+}
+function 백석요청완료_(data) {
+  const row = parseInt(data.row, 10);
+  const sh = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID).getSheetByName(CONFIG.FOOD.SHEET_NAME);
+  if (!sh || !(row >= 2) || row > sh.getLastRow()) return jsonResponse({ ok: false, message: '줄 없음' });
+  if (String(sh.getRange(row, 3).getValue()).trim() !== '백석') return jsonResponse({ ok: false, message: '백석 요청 줄이 아님' });
+  if (String(sh.getRange(1, 8).getValue() || '') === '') sh.getRange(1, 8).setValue('상태');
+  sh.getRange(row, 8).setValue('완료 ' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'MM/dd HH:mm'));
+  return jsonResponse({ ok: true });
 }
 
 function logFoodOrderToSheet(dateStr, msgs, delayed) {
